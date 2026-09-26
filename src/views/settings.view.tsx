@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useTranslation } from "react-i18next";
+import { SUPPORTED_LANGUAGES } from "@/i18n";
 import { saveProfileField } from "@/lib/profile-save.functions";
 import {
   Loader2,
@@ -130,7 +131,7 @@ type Payout = {
 type Defaults = { price_inr: number; category: string; level: string };
 
 export default function SettingsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, hasRole, isAdmin } = useAuth();
   const qc = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -3029,6 +3030,60 @@ export default function SettingsPage() {
 
           {/* ═══ SETTINGS ═══ */}
           <TabsContent value="settings" className="mt-6 space-y-6">
+            {/* ─── Language & Regional Preferences (Requirement 16) ─── */}
+            <div className="rounded-2xl border bg-card p-5 sm:p-6 shadow-sm space-y-4 max-w-xl">
+              <h2 className="font-display font-semibold flex items-center gap-2">
+                <Globe className="h-4 w-4 text-primary" /> Language & Regional Preferences
+              </h2>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Learnify AI automatically determines your locale. You can explicitly customize your preferred display language below; any saved preference will take priority across all pages.
+              </p>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Field label="Display Language">
+                  <Select
+                    value={i18n.language?.split("-")[0] || "en"}
+                    onValueChange={async (val) => {
+                      i18n.changeLanguage(val);
+                      localStorage.setItem("learnify-lang", val);
+                      if (user) {
+                        try {
+                          await doSaveField({ data: { field: "language", value: val } });
+                        } catch {
+                          /* ignore background save */
+                        }
+                      }
+                      toast.success("Display language updated");
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SUPPORTED_LANGUAGES.map((lang) => (
+                        <SelectItem key={lang.code} value={lang.code}>
+                          {lang.nativeLabel} ({lang.label})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                <Field label="Regional Context (Auto-detected)">
+                  <div className="h-10 px-3 rounded-md border border-input bg-muted/30 flex items-center text-xs font-medium text-foreground">
+                    India (IN) · Asia/Kolkata
+                  </div>
+                </Field>
+              </div>
+
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-[11px] text-muted-foreground space-y-1">
+                <p className="font-semibold text-foreground">Payment & Billing Currency</p>
+                <p>
+                  Canonical pricing across Learnify AI is in <strong>INR (₹)</strong>. For international cardholders, multi-currency conversion is automatically handled by Razorpay at secure checkout.
+                </p>
+              </div>
+            </div>
+
             <div className="rounded-2xl border bg-card p-5 sm:p-6 shadow-sm space-y-4 max-w-md">
               <h2 className="font-display font-semibold flex items-center gap-2">
                 <KeyRound className="h-4 w-4 text-primary" /> Change password

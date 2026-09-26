@@ -82,6 +82,9 @@ const DOC_CONTENTS: Record<string, string> = {
 
 <h3>4. Data Retention & Deletion</h3>
 <p>You may request data export or complete account deletion at any time by contacting support@learnifyai.in. Upon verified request, personal identifiable information is securely purged in accordance with statutory retention obligations.</p>
+
+<h3>5. Regional Localization & Zero-GPS Detection</h3>
+<p>Learnify AI does not collect or store precise GPS geolocation data, latitude, or longitude to determine your country, language, or currency. Localization relies solely on authenticated profile preferences, browser language settings, and coarse network IP-country headers. Pricing is canonically denominated in Indian Rupees (INR ₹), and multi-currency processing is handled by certified payment gateways (Razorpay and Cashfree) without persisting card credentials.</p>
 `,
 
   "cancellation-refund": `
