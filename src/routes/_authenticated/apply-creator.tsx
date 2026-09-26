@@ -78,11 +78,8 @@ function ApplyCreator() {
 
     const { error } = await supabase.from("creator_applications").insert({
       user_id: user.id,
-      role: "creator",
       motivation: finalMotivation,
       expertise: expertise.trim() || null,
-      bio: motivation.trim(),
-      avatar_url: photoUrl,
       portfolio_url: portfolio.trim() || null,
     });
     setSubmitting(false);
@@ -220,27 +217,6 @@ function ApplyCreator() {
               <div className="text-[10px] text-muted-foreground text-right">
                 {motivation.length}/1000
               </div>
-            </div>
-            <div className="rounded-lg border bg-muted/30 px-4 py-3 text-xs text-muted-foreground space-y-1">
-              <p>
-                By applying, you agree to our{" "}
-                <a href="/terms" target="_blank" className="text-primary underline">
-                  Terms of Service
-                </a>
-                ,{" "}
-                <a href="/privacy" target="_blank" className="text-primary underline">
-                  Privacy Policy
-                </a>{" "}
-                and{" "}
-                <a href="/refund-policy" target="_blank" className="text-primary underline">
-                  Refund Policy
-                </a>
-                .
-              </p>
-              <p>
-                If approved, you may publish courses under the Creator Program guidelines and earn
-                from your content.
-              </p>
             </div>
             <Button onClick={submit} disabled={submitting} className="w-full">
               {submitting ? (

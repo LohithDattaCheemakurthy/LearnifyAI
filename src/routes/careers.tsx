@@ -1,6 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { motion } from "framer-motion";
 import { MapPin, Briefcase, Loader2 } from "lucide-react";
 import { MarketingPage } from "@/components/MarketingPage";
@@ -22,7 +21,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { submitJobApplication } from "@/lib/careers.functions";
 
 const careersSearchSchema = z.object({
   apply: z.string().optional(),
@@ -72,7 +70,6 @@ function JobApplyDialog({
   const [experience, setExperience] = useState("");
   const [resumeText, setResumeText] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const doSubmit = useServerFn(submitJobApplication);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,16 +78,22 @@ function JobApplyDialog({
     }
     setSubmitting(true);
     try {
-      await doSubmit({
-        data: {
-          jobId: job!.id,
-          name: name.trim(),
-          email: email.trim(),
-          phone: phone.trim() || null,
-          experience: experience.trim() || null,
-          resumeText: resumeText.trim(),
-        },
+      const applications = JSON.parse(localStorage.getItem("job_applications") || "[]");
+      applications.push({
+        id: Math.random().toString(),
+        jobId: job?.id,
+        jobTitle: job?.title,
+        name,
+        email,
+        phone,
+        experience,
+        resumeText,
+        submittedAt: new Date().toISOString(),
       });
+      localStorage.setItem("job_applications", JSON.stringify(applications));
+
+      await new Promise((r) => setTimeout(r, 1000));
+
       toast.success("Application submitted successfully! Our team will contact you soon.");
       onClose();
       setName("");
@@ -189,7 +192,7 @@ function CareersPage() {
   const search = Route.useSearch();
   const applyJobId = search.apply;
   const { data: settings } = useSiteSettings();
-  const careersEmail = settings?.careers_email || "support.learnifyai@gmail.com";
+  const careersEmail = settings?.careers_email || "support@learnifyai.in";
   const defaultJobs: JobRow[] = [
     {
       id: "job-devrel-01",
@@ -247,11 +250,7 @@ function CareersPage() {
   }, [applyJobId, roles]);
 
   const handleApplyClick = (r: JobRow, e: React.MouseEvent) => {
-    const isExternal =
-      r.apply_url &&
-      r.apply_url.startsWith("http") &&
-      !r.apply_url.includes("learnifyai.in");
-    if (isExternal) {
+    if (r.apply_url && r.apply_url.startsWith("http")) {
       return;
     }
     e.preventDefault();

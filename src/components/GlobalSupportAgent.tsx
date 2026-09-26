@@ -175,8 +175,8 @@ export function GlobalSupportAgent() {
       dragMomentum={false}
       dragElastic={0.1}
       className={cn(
-        "fixed bottom-6 z-[99] flex-col pointer-events-auto hidden md:flex",
-        isLeft ? "left-6 items-start" : "right-6 items-end",
+        "fixed bottom-20 md:bottom-6 z-[90] flex-col pointer-events-auto flex",
+        isLeft ? "left-4 md:left-6 items-start" : "right-4 md:right-6 items-end",
       )}
       style={{ touchAction: "none" }}
     >

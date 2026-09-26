@@ -1,4 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
+import { generateText } from "ai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { z } from "zod";
 
 const Input = z.object({
@@ -10,7 +12,33 @@ const Input = z.object({
   exercise: z.string().min(1).max(5000),
 });
 
-const SYSTEM = `You are a senior code reviewer grading a student's programming exercise.
+const FALLBACK_MODELS = [
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "deepseek/deepseek-chat-v3.1:free",
+  "mistralai/mistral-small-3.2-24b-instruct:free",
+];
+
+function buildProvider(key: string) {
+  return createOpenAICompatible({
+    name: "openrouter",
+    baseURL: "https://openrouter.ai/api/v1",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "HTTP-Referer": "https://learnify.ai",
+      "X-Title": "Learnify AI Exercise Grader",
+    },
+  });
+}
+
+export const gradeExercise = createServerFn({ method: "POST" })
+  .validator((input: unknown) => Input.parse(input))
+  .handler(async ({ data }) => {
+    const key = process.env.OPENROUTER_API_KEY?.trim();
+    if (!key) {
+      throw new Error("AI grading is not configured. Add OPENROUTER_API_KEY to .env.");
+    }
+
+    const system = `You are a senior code reviewer grading a student's programming exercise.
 Evaluate the student's solution against the exercise requirements and provide structured feedback.
 
 Return valid JSON only (no markdown fences) with this exact shape:
@@ -25,8 +53,7 @@ Return valid JSON only (no markdown fences) with this exact shape:
 
 Be encouraging but honest. Score < 70 means the exercise needs more work.`;
 
-function buildUserPrompt(data: z.infer<typeof Input>) {
-  return `EXERCISE:
+    const user = `EXERCISE:
 ${data.exercise}
 
 STUDENT'S SOLUTION (${data.language}):
@@ -43,80 +70,20 @@ ${data.stderr || "(none)"}
 Exit code: ${data.exitCode ?? "n/a"}
 
 Grade this submission. Return only JSON.`;
-}
 
-interface ProviderConfig {
-  name: string;
-  keyEnv: string;
-  url: string;
-  model: string;
-  headers?: Record<string, string>;
-}
+    const provider = buildProvider(key);
 
-const PROVIDERS: ProviderConfig[] = [
-  {
-    name: "Groq",
-    keyEnv: "GROQ_API_KEY",
-    url: "https://api.groq.com/openai/v1/chat/completions",
-    model: "llama-3.3-70b-versatile",
-  },
-  {
-    name: "Gemini",
-    keyEnv: "GEMINI_API_KEY",
-    url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    model: "gemini-2.5-flash",
-  },
-  {
-    name: "OpenRouter",
-    keyEnv: "OPENROUTER_API_KEY",
-    url: "https://openrouter.ai/api/v1/chat/completions",
-    model: "google/gemini-2.5-flash",
-    headers: {
-      "HTTP-Referer": "https://learnify.ai",
-      "X-Title": "Learnify AI Exercise Grader",
-    },
-  },
-];
-
-export const gradeExercise = createServerFn({ method: "POST" })
-  .validator((input: unknown) => Input.parse(input))
-  .handler(async ({ data }) => {
-    const system = SYSTEM;
-    const user = buildUserPrompt(data);
-    const failures: string[] = [];
-
-    for (const provider of PROVIDERS) {
-      const apiKey = process.env[provider.keyEnv]?.trim();
-      if (!apiKey) continue;
-
+    for (const model of FALLBACK_MODELS) {
       try {
-        const res = await fetch(provider.url, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            ...provider.headers,
-          },
-          body: JSON.stringify({
-            model: provider.model,
-            messages: [
-              { role: "system", content: system },
-              { role: "user", content: user },
-            ],
-          }),
+        const { text } = await generateText({
+          model: provider(model),
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
         });
-
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          failures.push(`${provider.name} ${res.status}: ${text.slice(0, 120)}`);
-          continue;
-        }
-
-        const json = await res.json();
-        const content: string = json.choices?.[0]?.message?.content ?? "";
-        const cleaned = content.replace(/```json\s*|```\s*/g, "").trim();
+        const cleaned = text.replace(/```json\s*|```\s*/g, "").trim();
         const parsed = JSON.parse(cleaned);
-
         return {
           score: parsed.score ?? 0,
           passed: parsed.passed ?? false,
@@ -124,14 +91,12 @@ export const gradeExercise = createServerFn({ method: "POST" })
           correctness: parsed.correctness ?? "",
           suggestions: parsed.suggestions ?? [],
           hints: parsed.hints ?? [],
-          model: provider.model,
+          model,
         };
-      } catch (err: any) {
-        failures.push(`${provider.name}: ${err?.message || "unknown"}`);
+      } catch {
         continue;
       }
     }
 
-    console.error("[exercise-grader] all providers failed:", failures.join(" | "));
     throw new Error("AI grading unavailable right now. Try again in a moment.");
   });

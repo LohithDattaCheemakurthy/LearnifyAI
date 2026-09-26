@@ -63,7 +63,7 @@ export function generateOpenBadgeV3({
       type: ["Profile"],
       name: "Learnify AI Accreditation Board",
       url: origin,
-      email: "support.learnifyai@gmail.com",
+      email: "accreditation@learnify.ai",
     },
     issuanceDate: issueDate || new Date().toISOString(),
     credentialSubject: {

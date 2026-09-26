@@ -40,17 +40,13 @@ const DEFAULT_INVOICE_SETTINGS: Record<string, string> = {
   invoice_gstin: "29XXXXX1234X1Z5",
   invoice_prefix: "INV",
   invoice_footer:
-    "Thank you for supporting Learnify AI! For queries, contact support.learnifyai@gmail.com.",
+    "Thank you for supporting Learnify AI! For queries, contact support@learnifyai.in.",
   invoice_logo_url: "/logo.png",
-  invoice_contact: "support.learnifyai@gmail.com · +91 99182 31234",
+  invoice_contact: "support@learnifyai.in · +91 99182 31234",
   invoice_address: "102, Innovation Hub, Outer Ring Road, Bangalore, KA, 560103",
   invoice_website: "https://www.learnifyai.in",
   invoice_primary_color: "#4f46e5",
   invoice_secondary_color: "#7c3aed",
-  invoice_text_color: "#1e293b",
-  invoice_band_text_color: "#ffffff",
-  invoice_title: "TAX INVOICE",
-  invoice_test_number: "INV-B91D4407",
   invoice_watermark: "PAID",
   invoice_signature: "",
   invoice_terms:
@@ -107,6 +103,7 @@ export default function InvoiceDesigner() {
   };
 
   const handleSave = async () => {
+    setSaving(false);
     setSaving(true);
     try {
       const rows = Object.keys(settings).map((key) => ({
@@ -175,7 +172,7 @@ export default function InvoiceDesigner() {
 
   const triggerDownloadTest = async () => {
     const mockInvoice = {
-      invoice_number: settings.invoice_test_number || "INV-TEST-2026",
+      invoice_number: "INV-TEST-2026",
       created_at: new Date().toISOString(),
       due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       status: "paid",
@@ -199,19 +196,8 @@ export default function InvoiceDesigner() {
         footer: settings.invoice_footer,
         logo_url: settings.invoice_logo_url,
         contact: settings.invoice_contact,
-        address: settings.invoice_address,
-        website: settings.invoice_website,
         primary_color: settings.invoice_primary_color,
         secondary_color: settings.invoice_secondary_color,
-        template: settings.invoice_template,
-        qr_enabled: settings.invoice_qr_enabled,
-        watermark: settings.invoice_watermark,
-        signature: settings.invoice_signature,
-        terms: settings.invoice_terms,
-        refund_policy: settings.invoice_refund_policy,
-        title: settings.invoice_title,
-        text_color: settings.invoice_text_color,
-        band_text_color: settings.invoice_band_text_color,
       });
       toast.success("Test PDF download triggered!");
     } catch (err: any) {
@@ -232,10 +218,6 @@ export default function InvoiceDesigner() {
   const secondaryColor = settings.invoice_secondary_color || "#7c3aed";
   const templateStyle = settings.invoice_template || "modern";
   const qrEnabled = settings.invoice_qr_enabled === "true";
-  const textColor = settings.invoice_text_color || "#1e293b";
-  const bandTextColor = settings.invoice_band_text_color || "#ffffff";
-  const invoiceTitle = settings.invoice_title || "TAX INVOICE";
-  const invoiceTestNumber = settings.invoice_test_number || "INV-B91D4407";
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -315,7 +297,7 @@ export default function InvoiceDesigner() {
                   <Input
                     value={settings.invoice_website}
                     onChange={(e) => handleChange("invoice_website", e.target.value)}
-                    placeholder="https://www.learnifyai.in"
+                    placeholder="https://learnifyai.com"
                   />
                 </div>
               </TabsContent>
@@ -369,39 +351,6 @@ export default function InvoiceDesigner() {
                       type="color"
                       value={secondaryColor}
                       onChange={(e) => handleChange("invoice_secondary_color", e.target.value)}
-                      className="h-10 p-1 cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-1.5">
-                      <span
-                        className="w-3 h-3 rounded-full border"
-                        style={{ backgroundColor: textColor }}
-                      />
-                      Body Text Color
-                    </Label>
-                    <Input
-                      type="color"
-                      value={textColor}
-                      onChange={(e) => handleChange("invoice_text_color", e.target.value)}
-                      className="h-10 p-1 cursor-pointer"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-1.5">
-                      <span
-                        className="w-3 h-3 rounded-full border"
-                        style={{ backgroundColor: bandTextColor }}
-                      />
-                      Header Band Text
-                    </Label>
-                    <Input
-                      type="color"
-                      value={bandTextColor}
-                      onChange={(e) => handleChange("invoice_band_text_color", e.target.value)}
                       className="h-10 p-1 cursor-pointer"
                     />
                   </div>
@@ -509,24 +458,6 @@ export default function InvoiceDesigner() {
                     placeholder="INV"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Invoice Title (Header Label)</Label>
-                    <Input
-                      value={settings.invoice_title}
-                      onChange={(e) => handleChange("invoice_title", e.target.value)}
-                      placeholder="TAX INVOICE"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Test Invoice Number</Label>
-                    <Input
-                      value={settings.invoice_test_number}
-                      onChange={(e) => handleChange("invoice_test_number", e.target.value)}
-                      placeholder="INV-B91D4407"
-                    />
-                  </div>
-                </div>
                 <div className="space-y-2">
                   <Label>Terms & Conditions</Label>
                   <Textarea
@@ -589,17 +520,15 @@ export default function InvoiceDesigner() {
             </Badge>
           </div>
 
-          <div className="overflow-x-auto pb-4 no-scrollbar">
-            <div
-              className={`w-full min-w-[320px] sm:min-w-0 border rounded-2xl p-4 sm:p-8 shadow-2xl transition-all duration-300 font-sans aspect-[1/1.4] relative ${
-                templateStyle === "dark"
-                  ? "bg-slate-900 text-slate-100 border-slate-700"
-                  : templateStyle === "luxury"
-                    ? "bg-[#faf9f6] border-[#d4af37]/60"
-                    : "bg-white border-border/80"
-              }`}
-              style={{ color: templateStyle === "dark" ? undefined : textColor }}
-            >
+          <div
+            className={`w-full border rounded-2xl p-8 shadow-2xl transition-all duration-300 font-sans aspect-[1/1.4] overflow-hidden relative ${
+              templateStyle === "dark"
+                ? "bg-slate-900 text-slate-100 border-slate-700"
+                : templateStyle === "luxury"
+                  ? "bg-[#faf9f6] text-[#0f1b3d] border-[#d4af37]/60"
+                  : "bg-white text-slate-800 border-border/80"
+            }`}
+          >
             {/* Watermark Label */}
             {settings.invoice_watermark && (
               <div
@@ -615,7 +544,7 @@ export default function InvoiceDesigner() {
             {/* Template Header Layout */}
             {templateStyle === "minimal" ? (
               <div className="space-y-4">
-                <div className="flex justify-between items-start border-b-2 pb-4" style={{ borderColor: textColor }}>
+                <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4">
                   <div>
                     <h1 className="text-2xl font-semibold tracking-tight">
                       {settings.invoice_company_name}
@@ -625,8 +554,8 @@ export default function InvoiceDesigner() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <h2 className="text-lg font-bold">{invoiceTitle}</h2>
-                    <p className="text-xs font-mono text-muted-foreground">#{invoiceTestNumber}</p>
+                    <h2 className="text-lg font-bold">TAX INVOICE</h2>
+                    <p className="text-xs font-mono text-muted-foreground">#INV-B91D4407</p>
                   </div>
                 </div>
               </div>
@@ -652,9 +581,9 @@ export default function InvoiceDesigner() {
                   </div>
                   <div className="text-right">
                     <span className="text-xs tracking-widest border border-[#d4af37] px-3 py-1 rounded text-[#d4af37] font-semibold bg-[#0f1b3d]/5">
-                      {invoiceTitle}
+                      OFFICIAL INVOICE
                     </span>
-                    <p className="text-xs font-mono mt-2">#{invoiceTestNumber}</p>
+                    <p className="text-xs font-mono mt-2">#INV-B91D4407</p>
                   </div>
                 </div>
               </div>
@@ -664,7 +593,7 @@ export default function InvoiceDesigner() {
                 className="p-6 -mx-8 -mt-8 flex justify-between items-center relative overflow-hidden"
                 style={{
                   backgroundColor: templateStyle === "dark" ? "#1e293b" : primaryColor,
-                  color: templateStyle === "dark" ? "#ffffff" : bandTextColor,
+                  color: "#ffffff",
                 }}
               >
                 <div className="flex items-center gap-3 z-10">
@@ -677,19 +606,12 @@ export default function InvoiceDesigner() {
                   )}
                   <div>
                     <h1 className="text-xl font-bold">{settings.invoice_company_name}</h1>
-                    <p
-                      className="text-[10px]"
-                      style={{ opacity: 0.7 }}
-                    >
-                      {settings.invoice_legal_name}
-                    </p>
+                    <p className="text-[10px] text-white/70">{settings.invoice_legal_name}</p>
                   </div>
                 </div>
                 <div className="text-right z-10">
-                  <h2 className="text-lg font-bold tracking-wider">{invoiceTitle}</h2>
-                  <p className="text-xs font-mono" style={{ opacity: 0.8 }}>
-                    #{invoiceTestNumber}
-                  </p>
+                  <h2 className="text-lg font-bold tracking-wider">TAX INVOICE</h2>
+                  <p className="text-xs font-mono text-white/80">#INV-B91D4407</p>
                 </div>
                 {/* Accent band */}
                 <div
@@ -737,7 +659,7 @@ export default function InvoiceDesigner() {
                   GSTIN: <strong>{settings.invoice_gstin}</strong>
                 </span>
                 <span className="text-[10px] text-muted-foreground block">
-                  Support: {settings.invoice_contact || "support.learnifyai@gmail.com"}
+                  Support: {settings.invoice_contact || "support@learnifyai.in"}
                 </span>
               </div>
 
@@ -835,7 +757,7 @@ export default function InvoiceDesigner() {
                         Scan to Verify
                       </strong>
                       <span className="text-[8px] text-muted-foreground block leading-tight mt-0.5">
-                        Secured & tamper-proof validation on the Learnify Hub.
+                        Secured & tamper-proof validation on learnifyai.com.
                       </span>
                     </div>
                   </div>
@@ -877,6 +799,5 @@ export default function InvoiceDesigner() {
         </div>
       </div>
     </div>
-  </div>
-);
+  );
 }

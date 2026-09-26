@@ -36,11 +36,22 @@ import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
-import { cancelSubscription, resumeSubscription } from "@/lib/subscription.functions";
+import {
+  cancelUserSubscription,
+  resumeUserSubscription,
+  requestRefund,
+} from "@/lib/payments/payment.functions";
+import {
+  normalizePaymentStatus,
+  getStatusBadgeConfig,
+  isPaymentSuccessful,
+  isPaymentFailed,
+} from "@/lib/payments/payment-state-machine";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -53,10 +64,9 @@ import {
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { BillingSkeleton } from "@/components/Skeletons";
-import { SubscriptionPaymentAlert } from "@/components/SubscriptionPaymentAlert";
 
 export const Route = createFileRoute("/_authenticated/billing")({
-  head: () => ({ meta: [{ title: "Billing — Learnify AI" }] }),
+  head: () => ({ meta: [{ title: "Billing & Subscriptions — Learnify AI" }] }),
   component: BillingPage,
 });
 
@@ -64,6 +74,7 @@ const STATUS_COLORS: Record<string, string> = {
   active: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
   pending: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
   cancelled: "bg-red-500/10 text-red-500 border-red-500/20",
+  cancellation_scheduled: "bg-amber-500/10 text-amber-500 border-amber-500/20",
   expired: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20",
   past_due: "bg-orange-500/10 text-orange-500 border-orange-500/20",
   paused: "bg-blue-500/10 text-blue-500 border-blue-500/20",
@@ -98,11 +109,18 @@ function BillingPage() {
   const qc = useQueryClient();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [resumeDialogOpen, setResumeDialogOpen] = useState(false);
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+  const [refundPayment, setRefundPayment] = useState<any>(null);
+  const [refundCategory, setRefundCategory] = useState<string>("duplicate_payment");
+  const [refundNotes, setRefundNotes] = useState("");
+  const [refundBusy, setRefundBusy] = useState(false);
+
   const [viewInvoice, setViewInvoice] = useState<any>(null);
   const [invoiceFilter, setInvoiceFilter] = useState<string>("all");
   const [invoiceSearch, setInvoiceSearch] = useState("");
-  const doCancel = useServerFn(cancelSubscription);
-  const doResume = useServerFn(resumeSubscription);
+  const doCancel = useServerFn(cancelUserSubscription);
+  const doResume = useServerFn(resumeUserSubscription);
+  const doRefund = useServerFn(requestRefund);
 
   async function downloadInvoice(inv: any) {
     if (!user) return;
@@ -199,7 +217,7 @@ function BillingPage() {
         .from("user_subscriptions")
         .select("*, plan:pricing_plans(*)")
         .eq("user_id", user!.id)
-        .in("status", ["active", "past_due"])
+        .eq("status", "active")
         .maybeSingle();
       return data || null;
     },
@@ -261,10 +279,64 @@ function BillingPage() {
     },
   });
 
+  const payments = useQuery({
+    enabled: !!user,
+    queryKey: ["my-payments", user?.id],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("payment_logs")
+        .select("*")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      return (data || []).map((l: any) => ({
+        id: l.id,
+        created_at: l.created_at,
+        plan_id: l.request_payload?.planId || l.request_payload?.notes?.planId || "",
+        description: l.event_type || "Learnify AI Payment",
+        amount: l.amount || l.request_payload?.amount || 0,
+        amount_inr: l.amount || l.request_payload?.amount || 0,
+        provider: l.request_payload?.provider || (l.cashfree_event_id ? "cashfree" : "razorpay"),
+        provider_payment_id: l.request_payload?.payment_id || l.cashfree_event_id || l.id,
+        order_id: l.request_payload?.order_id || "",
+        status: l.status,
+      }));
+    },
+  });
+
+  const handleRefundSubmit = async () => {
+    if (!refundPayment) return;
+    if (!refundNotes.trim() || refundNotes.length < 10) {
+      toast.error("Please explain your request in at least 10 characters.");
+      return;
+    }
+    setRefundBusy(true);
+    try {
+      const res = await doRefund({
+        data: {
+          paymentId: refundPayment.id,
+          orderId: refundPayment.order_id,
+          amountInr: Number(refundPayment.amount || refundPayment.amount_inr || 0),
+          reasonCategory: refundCategory as any,
+          userNotes: refundNotes,
+        },
+      });
+      toast.success(res.message);
+      setRefundDialogOpen(false);
+      setRefundPayment(null);
+      setRefundNotes("");
+      qc.invalidateQueries({ queryKey: ["my-payments"] });
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to submit refund request.");
+    } finally {
+      setRefundBusy(false);
+    }
+  };
+
   const handleCancel = async () => {
     try {
-      await doCancel({ data: {} });
-      toast.success("Subscription cancelled. Access continues until period end.");
+      const res = await doCancel({ data: {} });
+      toast.success(res?.message || "Subscription cancellation scheduled.");
       setCancelDialogOpen(false);
       qc.invalidateQueries({ queryKey: ["my-subscription"] });
     } catch (e: any) {
@@ -274,8 +346,8 @@ function BillingPage() {
 
   const handleResume = async () => {
     try {
-      await doResume({ data: {} });
-      toast.success("Subscription resumed!");
+      const res = await doResume({ data: {} });
+      toast.success(res?.message || "Subscription resumed!");
       setResumeDialogOpen(false);
       qc.invalidateQueries({ queryKey: ["my-subscription"] });
     } catch (e: any) {
@@ -377,9 +449,15 @@ function BillingPage() {
                   <Check className="h-3 w-3 mr-1" /> Active
                 </Badge>
               )}
+              {sub?.status === "cancellation_scheduled" && (
+                <Badge className={cn("border", STATUS_COLORS.cancellation_scheduled)}>
+                  <Clock className="h-3 w-3 mr-1" /> Active until{" "}
+                  {sub.current_period_end ? format(new Date(sub.current_period_end), "MMM d") : "period end"}
+                </Badge>
+              )}
               {isPastDue && (
                 <Badge className={cn("border", STATUS_COLORS.past_due)}>
-                  <AlertTriangle className="h-3 w-3 mr-1" /> Past Due
+                  <AlertTriangle className="h-3 w-3 mr-1" /> Payment Retry Required
                 </Badge>
               )}
               {isCancelled && (
@@ -390,6 +468,11 @@ function BillingPage() {
               {isPaused && (
                 <Badge className={cn("border", STATUS_COLORS.paused)}>
                   <Clock className="h-3 w-3 mr-1" /> Paused
+                </Badge>
+              )}
+              {!sub && (
+                <Badge variant="outline" className="border-border text-muted-foreground">
+                  Free
                 </Badge>
               )}
             </div>
@@ -403,7 +486,9 @@ function BillingPage() {
               <p className="text-xs text-muted-foreground">remaining</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Renewal Date</p>
+              <p className="text-xs text-muted-foreground">
+                {sub?.status === "cancellation_scheduled" ? "Access Until" : "Renewal Date"}
+              </p>
               <p className="text-lg font-bold">
                 {sub?.current_period_end
                   ? format(new Date(sub.current_period_end), "MMM d, yyyy")
@@ -411,9 +496,12 @@ function BillingPage() {
               </p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Courses</p>
+              <p className="text-xs text-muted-foreground">Auto-Renewal</p>
               <p className="text-lg font-bold">
-                {plan?.max_courses === -1 ? "Unlimited" : plan?.max_courses || 3}
+                {sub?.will_renew === false ? "OFF" : "ON"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {sub?.provider ? sub.provider.toUpperCase() : "Razorpay (Primary)"}
               </p>
             </div>
             <div>
@@ -443,7 +531,7 @@ function BillingPage() {
             )}
             {canResume && (
               <Button variant="outline" size="sm" onClick={() => setResumeDialogOpen(true)}>
-                <ArrowUpRight className="h-4 w-4 mr-1" /> Resume
+                <ArrowUpRight className="h-4 w-4 mr-1" /> Resume Subscription
               </Button>
             )}
             {!isActive && !canResume && (
@@ -456,24 +544,14 @@ function BillingPage() {
           </div>
         </div>
 
-        {/* Past-due payment alert */}
-        {isPastDue && sub?.razorpay_subscription_id && (
-          <SubscriptionPaymentAlert
-            razorpaySubscriptionId={sub.razorpay_subscription_id}
-            planName={plan?.name || "your"}
-            userEmail={user?.email || ""}
-            userName={(user as any)?.user_metadata?.full_name || ""}
-            onSuccess={() =>
-              qc.invalidateQueries({ queryKey: ["my-subscription", user?.id] })
-            }
-          />
-        )}
-
         {/* Tabs */}
-        <Tabs defaultValue="invoices" className="space-y-6">
+        <Tabs defaultValue="payments" className="space-y-6">
           <TabsList>
+            <TabsTrigger value="payments" className="gap-2">
+              <CreditCard className="h-4 w-4" /> Payment History
+            </TabsTrigger>
             <TabsTrigger value="invoices" className="gap-2">
-              <Receipt className="h-4 w-4" /> Invoices
+              <Receipt className="h-4 w-4" /> Invoices & Receipts
             </TabsTrigger>
             <TabsTrigger value="history" className="gap-2">
               <Clock className="h-4 w-4" /> Subscription History
@@ -482,6 +560,123 @@ function BillingPage() {
               <Wallet className="h-4 w-4" /> Credits
             </TabsTrigger>
           </TabsList>
+
+          {/* ──────── Payments History Tab ──────── */}
+          <TabsContent value="payments">
+            <div className="rounded-2xl border bg-card overflow-hidden shadow-card">
+              <div className="p-4 border-b flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-base">Payment History</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Verified transactions processed securely via Razorpay & Cashfree
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-xs">
+                  {payments.data?.length ?? 0} transactions
+                </Badge>
+              </div>
+              {payments.isLoading ? (
+                <div className="p-10 text-center">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                </div>
+              ) : !payments.data?.length ? (
+                <div className="p-12 text-center text-muted-foreground">
+                  <CreditCard className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>No payment records found.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto divide-y">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground font-bold border-b">
+                      <tr>
+                        <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3">Plan / Description</th>
+                        <th className="px-4 py-3">Amount</th>
+                        <th className="px-4 py-3">Provider</th>
+                        <th className="px-4 py-3">Payment ID</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {payments.data.map((pmt: any) => {
+                        const normStatus = normalizePaymentStatus(
+                          (pmt.provider || "razorpay") as any,
+                          pmt.status || "success",
+                        );
+                        const badgeStyle = getStatusBadgeConfig(normStatus);
+                        const isPaid = isPaymentSuccessful(normStatus);
+                        const canRetry = isPaymentFailed(normStatus);
+                        return (
+                          <tr key={pmt.id} className="hover:bg-muted/50 transition">
+                            <td className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground">
+                              {pmt.created_at
+                                ? format(new Date(pmt.created_at), "MMM d, yyyy")
+                                : "—"}
+                            </td>
+                            <td className="px-4 py-3 font-medium text-xs">
+                              {pmt.plan_id
+                                ? pmt.plan_id.toUpperCase()
+                                : pmt.description || "Learnify Subscription"}
+                            </td>
+                            <td className="px-4 py-3 font-bold text-xs whitespace-nowrap">
+                              {inr(Number(pmt.amount || pmt.amount_inr || 0))}
+                            </td>
+                            <td className="px-4 py-3 text-xs">
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "text-[10px] capitalize",
+                                  pmt.provider === "cashfree"
+                                    ? "border-purple-500/30 text-purple-500"
+                                    : "border-blue-500/30 text-blue-500",
+                                )}
+                              >
+                                {pmt.provider || "Razorpay"}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground max-w-[140px] truncate">
+                              {pmt.provider_payment_id || pmt.order_id || pmt.id}
+                            </td>
+                            <td className="px-4 py-3">
+                              <Badge className={cn("text-[10px] border", badgeStyle.className)}>
+                                {badgeStyle.label}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 text-right whitespace-nowrap">
+                              {canRetry && (
+                                <Button
+                                  asChild
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs border-amber-500/30 text-amber-500 hover:bg-amber-500/10"
+                                >
+                                  <Link to="/pricing">Retry Payment</Link>
+                                </Button>
+                              )}
+                              {isPaid && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 text-xs text-muted-foreground hover:text-red-500"
+                                  onClick={() => {
+                                    setRefundPayment(pmt);
+                                    setRefundDialogOpen(true);
+                                  }}
+                                >
+                                  Request Refund
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </TabsContent>
 
           {/* ──────── Invoices Tab ──────── */}
           <TabsContent value="invoices">
@@ -928,6 +1123,108 @@ function BillingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Commercial Exception Refund Request Dialog */}
+      <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-primary" /> Request Commercial Exception Refund
+            </DialogTitle>
+            <DialogDescription>
+              Learnify AI evaluates commercial refund requests for duplicate debits, technical failures, or accidental renewals within our policy window.
+            </DialogDescription>
+          </DialogHeader>
+
+          {refundPayment && (
+            <div className="space-y-4 py-2 text-sm">
+              <div className="rounded-lg border bg-muted/40 p-3 space-y-1.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Transaction ID:</span>
+                  <span className="font-mono font-medium">
+                    {refundPayment.provider_payment_id || refundPayment.order_id || refundPayment.id}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Amount:</span>
+                  <span className="font-semibold text-foreground">
+                    {inr(refundPayment.amount || refundPayment.amount_inr || 0)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Date:</span>
+                  <span>
+                    {refundPayment.created_at
+                      ? format(new Date(refundPayment.created_at), "MMM d, yyyy")
+                      : "N/A"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="refund-category">Reason Category</Label>
+                <select
+                  id="refund-category"
+                  value={refundCategory}
+                  onChange={(e) => setRefundCategory(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="duplicate_payment">Duplicate charge / Multiple debits</option>
+                  <option value="accidental_charge">Accidental renewal / Untended cycle</option>
+                  <option value="technical_issue">Technical failure / Platform access error</option>
+                  <option value="billing_error">Billing calculation or tier mismatch</option>
+                  <option value="service_dissatisfaction">Commercial exception review</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="refund-notes">Detailed Explanation</Label>
+                <Textarea
+                  id="refund-notes"
+                  value={refundNotes}
+                  onChange={(e) => setRefundNotes(e.target.value)}
+                  placeholder="Please describe why you are requesting a commercial refund exception (at least 10 characters)..."
+                  rows={3}
+                  className="text-xs"
+                />
+              </div>
+
+              <div className="rounded-md border border-amber-500/20 bg-amber-500/5 p-2.5 text-[11px] text-amber-600 dark:text-amber-400">
+                Requests are reviewed within 24–48 hours. If approved, refunds are credited back to the original payment source via Razorpay in 5–7 business days.
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setRefundDialogOpen(false);
+                setRefundPayment(null);
+                setRefundNotes("");
+              }}
+              disabled={refundBusy}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleRefundSubmit}
+              disabled={refundBusy || refundNotes.trim().length < 10}
+            >
+              {refundBusy ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Submitting...
+                </>
+              ) : (
+                "Submit Request"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
+

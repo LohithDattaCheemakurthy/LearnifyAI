@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -19,78 +18,16 @@ import {
   Flame,
   Star,
   CheckCircle2,
-  Loader2,
-  Send,
-  Sparkles,
-  Copy,
-  Trash2,
-  Lock,
-  ShoppingCart,
 } from "lucide-react";
 import Editor from "@monaco-editor/react";
 import confetti from "canvas-confetti";
 import projectsData from "@/data/projects.json";
 import { cn } from "@/lib/utils";
-import { executeCode } from "@/lib/playground.functions";
-import { aiCodeAssistant } from "@/lib/playground/ai";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/studio/$projectId")({
-  head: ({ params }) => ({
-    meta: [
-      { title: `Template Mastery Studio #${params.projectId} — Learnify AI` },
-      {
-        name: "description",
-        content: `Interactive Code Studio & UI Preview for template project ${params.projectId} on Learnify AI.`,
-      },
-      { name: "robots", content: "noindex, nofollow" },
-    ],
-  }),
   component: StudioClassroomPage,
 });
-
-const PROJECT_STACK: Record<string, string[]> = {
-  "zenith-realty": ["react", "tailwindcss", "typescript"],
-  "default": ["html5", "css3", "javascript"],
-};
-
-function StackBadges({ stack }: { stack: string[] }) {
-  const labelMap: Record<string, string> = {
-    react: "React",
-    tailwindcss: "Tailwind CSS",
-    typescript: "TypeScript",
-    html5: "HTML",
-    css3: "CSS",
-    javascript: "JavaScript",
-  };
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      {stack.map((s) => (
-        <span
-          key={s}
-          className="inline-flex items-center gap-1.5 rounded-md bg-muted/40 px-2 py-1 text-[10px] font-semibold">
-          <img
-            src={`https://cdn.simpleicons.org/${s}/ffffff/black`}
-            alt={s}
-            className="h-3.5 w-3.5"
-          />
-          {labelMap[s] ?? s}
-        </span>
-      ))}
-    </div>
-  );
-}
 
 function StudioClassroomPage() {
   const { projectId } = Route.useParams();
@@ -167,43 +104,6 @@ function StudioClassroomPage() {
   });
 
   const project = dbProject as any;
-
-  const { user, isAdmin } = useAuth();
-
-  const currentSub = useQuery({
-    enabled: !!user,
-    queryKey: ["my-subscription", user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("user_subscriptions")
-        .select("*, plan:pricing_plans(*)")
-        .eq("user_id", user!.id)
-        .eq("status", "active")
-        .maybeSingle();
-      return data || null;
-    },
-  });
-
-  const enrollmentQuery = useQuery({
-    enabled: !!user && !!project?.id,
-    queryKey: ["studio-enrollment", project?.id, user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("enrollments")
-        .select("*")
-        .eq("user_id", user!.id)
-        .eq("course_id", project!.id)
-        .maybeSingle();
-      return data;
-    },
-  });
-
-  const isFree = Number(project?.price_inr || 0) === 0 && !project?.is_paid && project?.tier !== "pro";
-  const isEnrolled = !!enrollmentQuery.data && (enrollmentQuery.data.status === "active" || enrollmentQuery.data.status === "completed");
-  const hasActiveSubscription = !!currentSub.data && currentSub.data.status === "active";
-  const isCreator = !!user && project?.created_by === user.id;
-
-  const hasStudioAccess = isFree || isEnrolled || hasActiveSubscription || isAdmin || isCreator;
 
   const rawModules = project?.course_modules || [];
   const modules =
@@ -327,57 +227,6 @@ function StudioClassroomPage() {
   const [sidebarMode, setSidebarMode] = useState<"curriculum" | "architecture">("curriculum");
   const [isPlayingVoice, setIsPlayingVoice] = useState(false);
   const [editorCode, setEditorCode] = useState("");
-  const [consoleLog, setConsoleLog] = useState<string>("");
-  const [running, setRunning] = useState(false);
-  const [liveSrcDoc, setLiveSrcDoc] = useState<string>("");
-  const [aiOpen, setAiOpen] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiReply, setAiReply] = useState("");
-  const [aiBusy, setAiBusy] = useState(false);
-  const runCodeFn = useServerFn(executeCode);
-  const runAiFn = useServerFn(aiCodeAssistant);
-
-  const isHtmlLike = /(<\s*(html|head|body|div|section|h1|ul|li|p)\b|import\s+React|require\s*\()/i.test(editorCode.trim());
-
-  // Wrap JSX/React code in a proper HTML document with CDN React + Babel + require polyfill
-  const buildSrcDoc = (code: string): string => {
-    const hasHtmlDoc = /<!DOCTYPE|<html/i.test(code);
-    if (hasHtmlDoc) return code;
-    const hasReact = /require\s*\(['"]react|import\s+React|import\s+{.*}\s+from\s+['"]react/i.test(code);
-    if (!hasReact && /<\s*(html|head|body)\b/i.test(code)) return code;
-    // Wrap JSX/React code with CDN deps + Babel transpiler
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>body{margin:0;font-family:sans-serif;background:#fff}</style>
-  <script>
-    // require() polyfill for browser
-    window.require = function(mod) {
-      if (mod === 'react' || mod === 'React') return window.React;
-      if (mod === 'react-dom' || mod === 'ReactDOM') return window.ReactDOM;
-      if (mod === 'react-dom/client') return window.ReactDOM;
-      console.warn('require: module not found:', mod);
-      return {};
-    };
-    window.module = { exports: {} };
-    window.exports = window.module.exports;
-    window.process = { env: { NODE_ENV: 'development' } };
-  </script>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="text/babel" data-presets="react,typescript">
-${code}
-  </script>
-</body>
-</html>`;
-  };
   const synthRef = useRef<SpeechSynthesis | null>(null);
 
   // Gamification State
@@ -409,15 +258,6 @@ ${code}
       }
     }
   }, [activeStep, modules]);
-
-  // Auto-update live preview on step change if code is HTML/React
-  useEffect(() => {
-    if (modules[activeStep]?.code_snippet) {
-      const code = modules[activeStep].code_snippet;
-      const isHtml = /(<\s*(html|head|body|div|section|h1|ul|li|p)\b|import\s+React|require\s*\()/i.test(code.trim());
-      if (isHtml) setLiveSrcDoc(buildSrcDoc(code));
-    }
-  }, [activeStep]);
 
   const handleQuizAnswer = (index: number, correctIndex: number) => {
     if (selectedAnswer !== null) return; // Already answered
@@ -462,88 +302,13 @@ ${code}
     }
   };
 
-  const handleRun = async () => {
-    if (!editorCode) return;
-    if (isHtmlLike) {
-      setLiveSrcDoc(buildSrcDoc(editorCode));
-      setConsoleLog("");
-      return;
-    }
-    setRunning(true);
-    setConsoleLog("");
-    try {
-      const res: any = await runCodeFn({ data: { language: "javascript", code: editorCode, stdin: "" } });
-      const out = [res.stdout, res.stderr].filter(Boolean).join("\n").trim();
-      setConsoleLog(out || "(no output)");
-    } catch (e: any) {
-      setConsoleLog(e?.message ?? "Execution failed");
-    } finally {
-      setRunning(false);
-    }
-  };
-
-  const handleAi = async () => {
-    if (!aiPrompt.trim()) return;
-    setAiBusy(true);
-    setAiReply("");
-    try {
-      const res: any = await runAiFn({
-        data: {
-          action: "explain",
-          code: editorCode,
-          language: "javascript",
-          context: aiPrompt,
-        },
-      });
-      setAiReply(res.content || "(no explanation returned)");
-    } catch (e: any) {
-      setAiReply(e?.message ?? "AI request failed");
-    } finally {
-      setAiBusy(false);
-    }
-  };
-
-  const handleApplyAiFix = (code: string) => {
-    setEditorCode(code);
-    setAiReply("");
-    setAiOpen(false);
-  };
+  if (!project) return <div className="p-8">Course not found</div>;
 
   const currentModule = modules[activeStep];
   const isStepCompleted = completedSteps.includes(activeStep) || !currentModule?.quiz;
 
   return (
     <div className="h-screen w-full bg-background flex flex-col font-sans overflow-hidden relative">
-      {!hasStudioAccess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-md p-4">
-          <div className="max-w-lg w-full bg-card border border-border/80 rounded-2xl p-6 sm:p-8 shadow-2xl text-center flex flex-col items-center">
-            <div className="h-16 w-16 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center mb-4 shadow-lg">
-              <Lock className="h-8 w-8 text-primary" />
-            </div>
-            <Badge variant="outline" className="mb-3 border-primary/30 text-primary font-bold text-xs">
-              Career Pro — Studio Access Required
-            </Badge>
-            <h2 className="text-2xl font-display font-bold text-foreground">
-              Unlock {project?.title || "Studio Workspace"}
-            </h2>
-            <p className="text-muted-foreground text-xs sm:text-sm mt-2 mb-6 leading-relaxed">
-              The interactive Template Mastery Studio requires a <strong>Career Pro</strong> plan (₹499/mo) or individual course enrollment. Get full source code access, live IDE, DOM blueprints, and AI tutoring.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 w-full">
-              <Link to="/pricing" className="w-full sm:w-auto flex-1">
-                <Button className="w-full bg-gradient-to-r from-primary to-purple-600 text-primary-foreground font-bold h-11 rounded-xl shadow-glow text-xs">
-                  <Sparkles className="h-4 w-4 mr-1.5" /> Career Pro — ₹499/mo
-                </Button>
-              </Link>
-              <Link to="/courses" className="w-full sm:w-auto flex-1">
-                <Button variant="outline" className="w-full font-bold h-11 rounded-xl text-xs">
-                  Browse Courses
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Floating XP Popup */}
       <AnimatePresence>
         {showXPPopup && (
@@ -580,7 +345,7 @@ ${code}
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 bg-orange-500/10 text-orange-600 dark:text-orange-400 px-3 py-1 rounded-full border border-orange-500/30 text-xs font-bold shadow-sm">
               <Flame className="h-3.5 w-3.5 fill-orange-500" />
               <span>{streak} Day Streak</span>
@@ -687,7 +452,7 @@ ${code}
                     className="h-full bg-gradient-to-r from-primary to-primary/70"
                     initial={{ width: 0 }}
                     animate={{
-                      width: `${((Math.max(activeStep, ...completedSteps) + 1) / Math.max(1, modules.length)) * 100}%`,
+                      width: `${((activeStep + 1) / Math.max(1, modules.length)) * 100}%`,
                     }}
                   />
                 </div>
@@ -771,20 +536,7 @@ ${code}
                                         : "border-border/80 bg-card text-foreground hover:border-primary/60 hover:bg-primary/5"
                                   }`}
                                 >
-                                  <span className="flex items-center gap-2.5 min-w-0">
-                                    <span
-                                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold ${
-                                        showCorrect
-                                          ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-300"
-                                          : showWrong
-                                            ? "bg-rose-500/20 text-rose-600 dark:text-rose-300"
-                                            : "bg-muted text-muted-foreground"
-                                      }`}
-                                    >
-                                      {String.fromCharCode(65 + index)}
-                                    </span>
-                                    <span className="min-w-0">{option}</span>
-                                  </span>
+                                  <span>{option}</span>
                                   {showCorrect && (
                                     <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                                   )}
@@ -827,70 +579,13 @@ ${code}
           {/* Code Editor */}
           <div className="flex-1 flex flex-col border-r border-border border-b lg:border-b-0 min-h-[300px]">
             <div className="h-10 bg-card border-b border-border flex items-center justify-between px-4 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-                  <Code2 className="h-3.5 w-3.5" /> Code Sandbox
-                </div>
-                <StackBadges stack={PROJECT_STACK[project.id] ?? PROJECT_STACK.default} />
+              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                <Code2 className="h-3.5 w-3.5" /> Code Sandbox
               </div>
-              <div className="flex items-center gap-1.5">
-                {!isHtmlLike && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 text-xs gap-1.5"
-                    onClick={handleRun}
-                    disabled={running || !editorCode}
-                  >
-                    {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                    {running ? "Running…" : "Run ▶"}
-                  </Button>
-                )}
-                <Sheet open={aiOpen} onOpenChange={setAiOpen}>
-                  <SheetTrigger asChild>
-                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5">
-                      <Sparkles className="h-3.5 w-3.5" /> AI Helper
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent className="w-[380px] sm:w-[460px] flex flex-col">
-                    <SheetHeader>
-                      <SheetTitle>AI Code Helper</SheetTitle>
-                    </SheetHeader>
-                    <div className="mt-3 space-y-3 flex-1 overflow-y-auto text-sm">
-                      <p className="text-xs text-muted-foreground">
-                        Ask the AI helper anything about the current code — explain, fix, optimize, or
-                        convert it. Paste a prompt below and get inline guidance.
-                      </p>
-                        {aiReply ? (
-                          <div className="rounded-xl border bg-muted/40 p-3 whitespace-pre-wrap text-xs leading-relaxed">
-                            {aiReply}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            Select an action and explain what you need.
-                          </p>
-                        )}
-                        <div className="flex items-center gap-1">
-                          <Textarea
-                          placeholder="e.g. Explain why this crashes & fix it"
-                          value={aiPrompt}
-                          onChange={(e) => setAiPrompt(e.target.value)}
-                          rows={3}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 pt-3 border-t">
-                      <Button className="flex-1" onClick={handleAi} disabled={aiBusy || !aiPrompt}>
-                        {aiBusy ? "Thinking…" : "Ask AI"}
-                      </Button>
-                      {aiReply && (
-                        <Button size="sm" variant="outline" onClick={() => setAiReply("")}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  </SheetContent>
-                </Sheet>
+              <div className="flex gap-1.5">
+                <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
+                <div className="h-2.5 w-2.5 rounded-full bg-amber-400/60" />
+                <div className="h-2.5 w-2.5 rounded-full bg-emerald-400/60" />
               </div>
             </div>
             <div className="flex-1 bg-[#1e1e1e] relative">
@@ -922,46 +617,25 @@ ${code}
               <div className="flex items-center gap-2 text-xs font-semibold text-primary">
                 <Layout className="h-3.5 w-3.5" /> Live Render
               </div>
-              <div className="flex items-center gap-1.5">
-                {isHtmlLike && (
-                  <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={handleRun}>
-                    Refresh
-                  </Button>
-                )}
-                <button className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-accent">
-                  <Maximize2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              <button className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-accent">
+                <Maximize2 className="h-3.5 w-3.5" />
+              </button>
             </div>
             <div className="flex-1 bg-white relative overflow-hidden">
-              {isHtmlLike ? (
-                <iframe
-                  srcDoc={liveSrcDoc || buildSrcDoc(editorCode)}
-                  className="w-full h-full border-0"
-                  title="Live HTML Preview"
-                  sandbox="allow-scripts allow-same-origin allow-forms"
-                />
-              ) : (
-                <iframe
-                  src={project.path}
-                  className="w-full h-full border-0"
-                  title="Live Preview"
-                  sandbox="allow-scripts allow-same-origin"
-                />
-              )}
+              {/* We use an iframe pointing to the preset site */}
+              {/* In a real integrated environment, this might be a Sandpack preview */}
+              <iframe
+                src={project.path}
+                className="w-full h-full border-0"
+                title="Live Preview"
+                sandbox="allow-scripts allow-same-origin"
+              />
 
               {/* Placeholder Overlay to simulate interactive linking between code & iframe */}
               <div className="absolute top-4 right-4 bg-black/60 backdrop-blur text-white text-[10px] px-2 py-1 rounded border border-white/10 pointer-events-none">
                 Sync Active
               </div>
             </div>
-
-            {/* Console drawer for JS execution */}
-            {!isHtmlLike && consoleLog && (
-              <div className="absolute bottom-0 left-0 right-0 h-36 bg-[#0d1117] text-[11px] font-mono text-emerald-300 overflow-y-auto p-2 border-t border-border/60 z-10">
-                <pre className="whitespace-pre-wrap break-all">{consoleLog}</pre>
-              </div>
-            )}
           </div>
         </div>
       </div>

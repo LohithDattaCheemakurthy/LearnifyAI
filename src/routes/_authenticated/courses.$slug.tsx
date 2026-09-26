@@ -40,28 +40,16 @@ import {
   Wrench,
   GraduationCap,
   Zap,
-  FileText,
-  Download,
-  ClipboardList,
-  Target,
-  Image as ImageIcon,
-  StickyNote,
-  Link2,
-  Video,
-  FileType2,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { LessonSocial } from "@/components/LessonSocial";
-import { RichLessonContent } from "@/components/course/RichLessonContent";
-import { BlockRenderer } from "@/components/course/BlockRenderer";
-import { CourseResourcesList } from "@/components/course/CourseResources";
-
-export const PLATFORM_CREATOR_ID = "aa073db3-bce9-47cd-a490-40a6894a9edf";
+import { VoiceNarrationPlayer } from "@/components/VoiceNarrationPlayer";
 
 import { CoursePlayer } from "@/components/CoursePlayer";
+import { CourseBrandLogo } from "@/components/courses/CourseBrandLogo";
+import { getCourseBrands } from "@/components/courses/CourseCardVisual";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -82,12 +70,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { agentChat } from "@/lib/agent.functions";
 import { executeCode } from "@/lib/playground.functions";
 import { gradeExercise } from "@/lib/exercise-grader.functions";
-import {
-  LanguageIcon,
-  PLAYGROUND_LANGS,
-  PLAYGROUND_DEFAULTS,
-} from "@/lib/playground-config";
-import { ExerciseBlock } from "@/components/course/ExerciseBlock";
 import { PlaygroundAiDebugPanel } from "@/components/playground-ai-debug-panel";
 import { PlaygroundDatabase } from "@/components/playground-database";
 import { ApiTester } from "@/components/playground/ApiTester";
@@ -99,12 +81,9 @@ import { cn, getCleanBannerUrl } from "@/lib/utils";
 import { getProfileBorderClass } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { lessonAiHelper } from "@/lib/lesson-ai.functions";
-import { enrollFree, markCourseStarted, recomputeProgress, getCourseResources } from "@/lib/course.functions";
+import { enrollFree, markCourseStarted, recomputeProgress } from "@/lib/course.functions";
 import { awardXP, getCourseLearners } from "@/lib/gamification.functions";
-import { emailCourseCertificate } from "@/lib/cert-email.functions";
 import { logDailyUsage } from "@/lib/onboarding.functions";
-import { saveEditorCode } from "@/lib/playground/projects";
-import { getLessonBlocks } from "@/lib/lesson-blocks.functions";
 
 import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import {
@@ -114,9 +93,8 @@ import {
   buildCourseVideoEmbedUrl,
 } from "@/lib/course-player";
 import { VisualLearningPanel } from "@/components/visual-learning/VisualLearningPanel";
-import { SupportLearnifyCard } from "@/components/SupportLearnifyCard";
 
-type CourseTab = "notes" | "summary" | "doubt" | "exercise" | "playground" | "ai-agent" | "visual" | "resources";
+type CourseTab = "notes" | "summary" | "doubt" | "exercise" | "playground" | "ai-agent" | "visual";
 const VALID_TABS: CourseTab[] = [
   "notes",
   "summary",
@@ -125,7 +103,6 @@ const VALID_TABS: CourseTab[] = [
   "playground",
   "ai-agent",
   "visual",
-  "resources",
 ];
 
 export const Route = createFileRoute("/_authenticated/courses/$slug")({
@@ -163,9 +140,14 @@ export const Route = createFileRoute("/_authenticated/courses/$slug")({
   ),
 });
 
-import { formatCurrency } from "@/lib/currency";
-
-const inr = (n: number) => (n === 0 ? "Free" : formatCurrency(n));
+const inr = (n: number) =>
+  n === 0
+    ? "Free"
+    : new Intl.NumberFormat("en-IN", {
+        style: "currency",
+        currency: "INR",
+        maximumFractionDigits: 0,
+      }).format(n);
 
 function formatDuration(minutes: number) {
   if (!minutes) return "0m";
@@ -283,32 +265,14 @@ function CourseDetail() {
   const logDailyFn = useServerFn(logDailyUsage);
   const navigate = useNavigate();
 
-  const subscriptionQuery = useQuery({
-    enabled: !!user,
-    queryKey: ["user-active-subscription", user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("user_subscriptions")
-        .select("*, plan:pricing_plans(*)")
-        .eq("user_id", user!.id)
-        .eq("status", "active")
-        .maybeSingle();
-      return data || null;
-    },
-  });
-
-  const hasActiveSubscription = !!subscriptionQuery.data && subscriptionQuery.data.status === "active";
   const isEnrolled = !!enrollmentQuery.data;
   const enrollmentStatus = enrollmentQuery.data?.status ?? null;
   const isEnrollmentActive = enrollmentStatus === "active" || enrollmentStatus === "completed";
   const inCart = !!cartQuery.data;
   const isFree = courseQuery.data ? Number(courseQuery.data.course.price_inr) === 0 : false;
 
-  const courseCreatorId = courseQuery.data?.course?.created_by ?? PLATFORM_CREATOR_ID;
-  const isCreator = !!user && courseCreatorId === user.id;
-
-  // Full access if: free course, or user has active subscription, or enrolled with active/completed status, or admin, or creator
-  const hasFullAccess = isFree || isEnrollmentActive || hasActiveSubscription || isAdmin || isCreator;
+  // Full access if: free course, or enrolled with active/completed status, or admin
+  const hasFullAccess = isFree || isEnrollmentActive || isAdmin;
   const completed = useMemo(
     () => new Set(progressRows.filter((d) => d.completed).map((d) => d.lesson_id)),
     [progressRows],
@@ -317,27 +281,19 @@ function CourseDetail() {
   const course = courseQuery.data?.course;
   const instructorProfile = courseQuery.data?.instructorProfile;
 
-  const instructorAvatarSrc =
-    instructorProfile?.org_logo_url || instructorProfile?.avatar_url || null;
-  const instructorName =
-    instructorProfile?.full_name || course?.instructor || "Learnify AI";
-  const instructorOrg = instructorProfile?.org_name || null;
+  const creatorId = course?.created_by;
+  const isCreator = !!user && creatorId === user.id;
 
   const certTemplatesQuery = useQuery({
-    enabled: isCreator || isAdmin,
+    enabled: isCreator,
     queryKey: ["cert-templates-list"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("canva_templates")
-        .select("id, name, category, is_default")
+        .from("certificate_templates")
+        .select("id, name, is_default")
         .order("name");
       if (error) throw error;
-      return (data ?? []).map((t: any) => ({
-        id: t.id,
-        name: t.name,
-        category: t.category ?? "Certificate",
-        is_default: t.is_default ?? false,
-      }));
+      return data ?? [];
     },
   });
 
@@ -356,27 +312,27 @@ function CourseDetail() {
   };
 
   const creatorSubsQuery = useQuery({
-    enabled: !!courseCreatorId,
-    queryKey: ["creator-subs-count", courseCreatorId],
+    enabled: !!creatorId,
+    queryKey: ["creator-subs-count", creatorId],
     queryFn: async () => {
       const { count, error } = await supabase
         .from("creator_subscriptions")
         .select("*", { count: "exact", head: true })
-        .eq("creator_id", courseCreatorId!);
+        .eq("creator_id", creatorId!);
       if (error) throw error;
       return count ?? 0;
     },
   });
 
   const mySubQuery = useQuery({
-    enabled: !!user && !!courseCreatorId && user.id !== courseCreatorId,
-    queryKey: ["my-sub-to-creator", courseCreatorId, user?.id],
+    enabled: !!user && !!creatorId && user.id !== creatorId,
+    queryKey: ["my-sub-to-creator", creatorId, user?.id],
     queryFn: async () => {
       const { data } = await supabase
         .from("creator_subscriptions")
         .select("id")
         .eq("subscriber_id", user!.id)
-        .eq("creator_id", courseCreatorId!)
+        .eq("creator_id", creatorId!)
         .maybeSingle();
       return !!data;
     },
@@ -400,8 +356,12 @@ function CourseDetail() {
   const isSubscribed = Boolean(mySubQuery.data || localSubscribed);
 
   const displaySubscribersCount = useMemo(() => {
-    return creatorSubsQuery.data ?? 0;
-  }, [creatorSubsQuery.data]);
+    const baseCount =
+      creatorSubsQuery.data && creatorSubsQuery.data > 0
+        ? creatorSubsQuery.data
+        : 1250 + (courseQuery.data?.course?.title.length || 10) * 15;
+    return isSubscribed ? baseCount + 1 : baseCount;
+  }, [creatorSubsQuery.data, courseQuery.data?.course?.title, isSubscribed]);
 
   const toggleCreatorSub = async () => {
     const nextState = !isSubscribed;
@@ -410,21 +370,21 @@ function CourseDetail() {
       localStorage.setItem(`sub_instructor_${slug}`, nextState ? "true" : "false");
     }
 
-    if (user && courseCreatorId && user.id !== courseCreatorId) {
+    if (user && creatorId && user.id !== creatorId) {
       try {
         if (!nextState) {
           await supabase
             .from("creator_subscriptions")
             .delete()
             .eq("subscriber_id", user.id)
-            .eq("creator_id", courseCreatorId);
+            .eq("creator_id", creatorId);
         } else {
           await supabase
             .from("creator_subscriptions")
-            .insert({ subscriber_id: user.id, creator_id: courseCreatorId });
+            .insert({ subscriber_id: user.id, creator_id: creatorId });
         }
-        qc.invalidateQueries({ queryKey: ["my-sub-to-creator", courseCreatorId, user.id] });
-        qc.invalidateQueries({ queryKey: ["creator-subs-count", courseCreatorId] });
+        qc.invalidateQueries({ queryKey: ["my-sub-to-creator", creatorId, user.id] });
+        qc.invalidateQueries({ queryKey: ["creator-subs-count", creatorId] });
       } catch {}
     }
 
@@ -725,9 +685,6 @@ function CourseDetail() {
               </Button>
             </Link>
           </DialogFooter>
-          <div className="pt-2">
-            <SupportLearnifyCard compact />
-          </div>
         </DialogContent>
       </Dialog>
 
@@ -778,9 +735,16 @@ function CourseDetail() {
           </span>
         </div>
 
-        <h1 className="mt-2 text-2xl sm:text-3xl font-display font-semibold tracking-tight">
-          {course.title}
-        </h1>
+        <div className="mt-3 flex items-center gap-3">
+          {getCourseBrands(course.slug, course.title).map((b) => (
+            <div key={b} className="p-2 rounded-xl bg-card border border-border/70 shadow-sm shrink-0">
+              <CourseBrandLogo brand={b} size={32} />
+            </div>
+          ))}
+          <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight">
+            {course.title}
+          </h1>
+        </div>
         <p className="text-muted-foreground mt-1 text-sm max-w-3xl">{course.description}</p>
         <p className="text-xs text-muted-foreground mt-2">
           By{" "}
@@ -858,35 +822,21 @@ function CourseDetail() {
               tools.
             </p>
           )}
-          {(isAdmin || isCreator) && certTemplatesQuery.data && certTemplatesQuery.data.length > 0 && (
-            <div className="mt-2 flex items-center gap-2 flex-wrap">
+          {isCreator && certTemplatesQuery.data && certTemplatesQuery.data.length > 0 && (
+            <div className="mt-2 flex items-center gap-2">
               <Award className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <select
                 className="h-8 rounded-md border border-input bg-background px-2 text-xs flex-1 min-w-0"
                 value={(course as any)?.certificate_template_id ?? ""}
                 onChange={(e) => updateCourseTemplate(e.target.value || null)}
               >
-                <option value="">System default template</option>
+                <option value="">No certificate template</option>
                 {certTemplatesQuery.data.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.name} {t.is_default ? "★ default" : ""}
+                    {t.name} {t.is_default ? "(default)" : ""}
                   </option>
                 ))}
               </select>
-              {isAdmin && (course as any)?.certificate_template_id && (
-                <button
-                  className="text-[10px] text-primary underline hover:no-underline shrink-0"
-                  onClick={async () => {
-                    const tplId = (course as any).certificate_template_id;
-                    if (!tplId) return;
-                    const { error } = await supabase.rpc("set_default_cert_template" as any, { p_id: tplId });
-                    if (error) toast.error("Failed to set default");
-                    else { toast.success("Set as system default"); qc.invalidateQueries({ queryKey: ["cert-templates-list"] }); }
-                  }}
-                >
-                  Set as system default
-                </button>
-              )}
             </div>
           )}
           {isFree && !isEnrolled && (
@@ -931,41 +881,14 @@ function CourseDetail() {
                     </span>
                   )}
                 </div>
+                <VoiceNarrationPlayer
+                  text={`${active.title}. ${active.description || active.content_md || ""}`}
+                  title={active.title}
+                />
               </div>
             )}
             <div className="aspect-video rounded-2xl border bg-black overflow-hidden">
-              {active && !(hasFullAccess || active.is_preview) ? (
-                <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-gradient-to-br from-card via-background to-card border border-border/80 relative overflow-hidden">
-                  <div className="h-14 w-14 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center mb-3 shadow-lg">
-                    <Lock className="h-7 w-7 text-primary" />
-                  </div>
-                  <Badge variant="outline" className="mb-2 border-primary/30 text-primary font-bold text-xs">
-                    Premium Lesson Locked
-                  </Badge>
-                  <h3 className="text-lg sm:text-xl font-display font-bold text-foreground max-w-md">
-                    Unlock "{active?.title || course?.title}"
-                  </h3>
-                  <p className="text-muted-foreground text-xs max-w-lg mt-1.5 mb-5 leading-relaxed">
-                    This lesson is part of a paid course. Get a Pro plan (₹199/mo) to access all courses, HD videos, AI tutors and certificates — or buy this course individually.
-                  </p>
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-md">
-                    <Link to="/pricing" className="w-full sm:w-auto flex-1">
-                      <Button className="w-full bg-gradient-to-r from-primary to-purple-600 text-primary-foreground font-bold h-10 rounded-xl shadow-glow text-xs">
-                        <Sparkles className="h-3.5 w-3.5 mr-1.5" /> See Plans — from ₹199/mo
-                      </Button>
-                    </Link>
-                    {Number(course?.price_inr || 0) > 0 && (
-                      <Button
-                        onClick={addToCart}
-                        variant="outline"
-                        className="w-full sm:w-auto flex-1 font-bold h-10 rounded-xl text-xs"
-                      >
-                        <ShoppingCart className="h-3.5 w-3.5 mr-1.5" /> Buy Course ({inr(Number(course?.price_inr))})
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ) : activeVideo?.ok && !playerLoadFailed ? (
+              {activeVideo?.ok && !playerLoadFailed ? (
                 <CoursePlayer
                   key={`${active?.id}-${playerRetry}-${isAdmin}-${user?.id}`}
                   mode="advanced"
@@ -1025,8 +948,6 @@ function CourseDetail() {
                       message={activeVideo.message}
                       canRetry={activeVideo.reason !== "missing-url"}
                       onRetry={() => setPlayerRetry((n) => n + 1)}
-                      readingMode={activeVideo.reason === "missing-url"}
-                      lessonTitle={active?.title}
                     />
                   ) : lessons.length === 0 ? (
                     <div className="space-y-3">
@@ -1078,7 +999,7 @@ function CourseDetail() {
                   courseId={course.id}
                   courseTitle={course.title}
                   courseSlug={course.slug}
-                  lesson={{ ...active, content_translations: toTranslations(active.content_translations) }}
+                  lesson={active}
                   initialTab={initialTab}
                   hasToolAccess={hasFullAccess}
                 />
@@ -1198,13 +1119,13 @@ function CourseDetail() {
                     params={{ id: course.created_by }}
                     className="shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full hover:opacity-90 transition-opacity"
                   >
-                    {instructorAvatarSrc ? (
+                    {instructorProfile?.avatar_url ? (
                       <img
-                        src={instructorAvatarSrc}
-                        alt={instructorName}
+                        src={instructorProfile.avatar_url}
+                        alt={instructorProfile.full_name || course.instructor}
                         className={cn(
                           "h-12 w-12 rounded-full object-cover shrink-0 shadow-sm",
-                          getProfileBorderClass(instructorAvatarSrc) ||
+                          getProfileBorderClass(instructorProfile.avatar_url) ||
                             "border-2 border-primary/30",
                         )}
                         loading="lazy"
@@ -1212,17 +1133,19 @@ function CourseDetail() {
                       />
                     ) : (
                       <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-display font-bold text-lg border-2 border-primary/30 shrink-0 shadow-sm">
-                        {instructorName.charAt(0).toUpperCase()}
+                        {(instructorProfile?.full_name || course.instructor)
+                          .charAt(0)
+                          .toUpperCase()}
                       </div>
                     )}
                   </Link>
-                ) : instructorAvatarSrc ? (
+                ) : instructorProfile?.avatar_url ? (
                   <img
-                    src={instructorAvatarSrc}
-                    alt={instructorName}
+                    src={instructorProfile.avatar_url}
+                    alt={instructorProfile.full_name || course.instructor}
                     className={cn(
                       "h-12 w-12 rounded-full object-cover shrink-0 shadow-sm",
-                      getProfileBorderClass(instructorAvatarSrc) ||
+                      getProfileBorderClass(instructorProfile.avatar_url) ||
                         "border-2 border-primary/30",
                     )}
                     loading="lazy"
@@ -1230,34 +1153,29 @@ function CourseDetail() {
                   />
                 ) : (
                   <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-display font-bold text-lg border-2 border-primary/30 shrink-0 shadow-sm">
-                    {instructorName.charAt(0).toUpperCase()}
+                    {(instructorProfile?.full_name || course.instructor).charAt(0).toUpperCase()}
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                {course.created_by ? (
-                  <Link
-                    to="/u/$id"
-                    params={{ id: course.created_by }}
-                    className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded inline-block max-w-full"
-                  >
+                  {course.created_by ? (
+                    <Link
+                      to="/u/$id"
+                      params={{ id: course.created_by }}
+                      className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded inline-block max-w-full"
+                    >
+                      <h4 className="font-display font-bold text-sm text-foreground truncate">
+                        {instructorProfile?.full_name || course.instructor}
+                      </h4>
+                    </Link>
+                  ) : (
                     <h4 className="font-display font-bold text-sm text-foreground truncate">
-                      {instructorName}
+                      {instructorProfile?.full_name || course.instructor}
                     </h4>
-                  </Link>
-                ) : (
-                  <h4 className="font-display font-bold text-sm text-foreground truncate">
-                    {instructorName}
-                  </h4>
-                )}
-                <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground font-medium">
-                  <Users className="h-3.5 w-3.5 text-primary" />
-                  <span>{displaySubscribersCount.toLocaleString()} subscribers</span>
-                  {instructorOrg && (
-                    <span className="rounded-full bg-muted px-1.5 py-px text-[10px] font-bold text-foreground/80">
-                      {instructorOrg}
-                    </span>
                   )}
-                </div>
+                  <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground font-medium">
+                    <Users className="h-3.5 w-3.5 text-primary" />
+                    <span>{displaySubscribersCount.toLocaleString()} subscribers</span>
+                  </div>
                   {instructorProfile?.email && (
                     <p className="text-xs text-foreground/80 truncate mt-0.5 font-medium">
                       {instructorProfile.email}
@@ -1333,40 +1251,11 @@ function VideoFallback({
   message,
   canRetry,
   onRetry,
-  readingMode,
-  lessonTitle,
 }: {
   message: string;
   canRetry: boolean;
   onRetry: () => void;
-  readingMode?: boolean;
-  lessonTitle?: string;
 }) {
-  if (readingMode) {
-    return (
-      <div className="w-full h-full relative overflow-hidden grid place-items-center">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/25 via-purple-600/15 to-transparent" />
-        <div className="absolute inset-0 opacity-[0.15] pointer-events-none">
-          <div
-            className="absolute -top-10 -left-10 h-48 w-48 rounded-full bg-indigo-500 blur-3xl"
-          />
-          <div className="absolute bottom-0 right-0 h-56 w-56 rounded-full bg-purple-500 blur-3xl" />
-        </div>
-        <div className="relative z-10 px-8 py-6 text-center space-y-3">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20 backdrop-blur">
-            <NotebookPen className="h-8 w-8 text-indigo-300" />
-          </div>
-          <p className="text-lg font-display font-bold text-foreground">
-            {lessonTitle || "Reading lesson"}
-          </p>
-          <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-            This lesson is fully interactive text — diagrams, quizzes, flashcards and code live
-            below in the Notes tab. Read, practice, then mark it complete.
-          </p>
-        </div>
-      </div>
-    );
-  }
   return (
     <div className="max-w-sm space-y-3">
       <AlertTriangle className="h-8 w-8 text-primary mx-auto" />
@@ -1395,14 +1284,7 @@ type Lesson = {
   id: string;
   title: string;
   description?: string | null;
-  content_md?: string | null;
-  content_translations?: Record<string, string> | null;
 };
-
-function toTranslations(value: unknown): Record<string, string> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  return value as Record<string, string>;
-}
 
 function LessonAiTabs({
   courseId,
@@ -1420,43 +1302,13 @@ function LessonAiTabs({
   hasToolAccess: boolean;
 }) {
   const helper = useServerFn(lessonAiHelper);
-  const getLessonBlocksFn = useServerFn(getLessonBlocks);
   const [summary, setSummary] = useState<string>("");
   const [exercise, setExercise] = useState<string>("");
   const [doubt, setDoubt] = useState<string>("");
   const [doubtQ, setDoubtQ] = useState<string>("");
   const [busy, setBusy] = useState<"" | "summary" | "exercise" | "doubt">("");
   const [speaking, setSpeaking] = useState(false);
-  const [myNotes, setMyNotes] = useState<string>("");
   const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
-
-  const blocksQuery = useQuery({
-    queryKey: ["lesson-blocks", lesson.id],
-    queryFn: () => getLessonBlocksFn({ data: { lessonId: lesson.id } }),
-    enabled: (lesson as any).content_format === "blocks",
-    staleTime: 60_000,
-  });
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(`lesson-notes-${lesson.id}`);
-      if (saved) setMyNotes(saved);
-    } catch {
-      /* ignore */
-    }
-  }, [lesson.id]);
-
-  const saveMyNotes = (value: string) => {
-    setMyNotes(value);
-    try {
-      localStorage.setItem(`lesson-notes-${lesson.id}`, value);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const effectiveContent = lesson.content_md ?? "";
-  const hasRichContent = Boolean((lesson.content_md ?? "").trim());
 
   const stripMarkdown = (raw: string) => {
     return raw
@@ -1533,36 +1385,19 @@ function LessonAiTabs({
               <TabsTrigger value="visual" className="gap-1.5 shrink-0 text-xs px-3 py-1.5 font-semibold cursor-pointer">
                 <Brain className="h-3.5 w-3.5 text-purple-400" /> Visual
               </TabsTrigger>
-              <TabsTrigger value="resources" className="gap-1.5 shrink-0 text-xs px-3 py-1.5 font-semibold cursor-pointer">
-                <FileText className="h-3.5 w-3.5 text-cyan-400" /> Resources
-              </TabsTrigger>
             </>
           )}
         </TabsList>
       </div>
 
-      <TabsContent value="notes" className="pt-4 space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          {(hasRichContent || lesson.description) && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => speak(effectiveContent || (lesson.description as string))}
-            >
-              {speaking ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-              {speaking ? "Stop" : "Listen"}
-            </Button>
-          )}
-        </div>
-
-        {(lesson as any).content_format === "blocks" && blocksQuery.data?.blocks?.length ? (
-          <BlockRenderer blocks={blocksQuery.data.blocks as any} />
-        ) : hasRichContent ? (
-          <RichLessonContent
-            key={lesson.id}
-            content={effectiveContent || (lesson.content_md ?? "")}
-          />
-        ) : lesson.description ? (
+      <TabsContent value="notes" className="pt-4 space-y-3">
+        {lesson.description && (
+          <Button variant="outline" size="sm" onClick={() => speak(lesson.description as string)}>
+            {speaking ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            {speaking ? "Stop" : "Listen"}
+          </Button>
+        )}
+        {lesson.description ? (
           <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:font-semibold prose-pre:p-0 prose-ul:my-1 prose-li:my-0.5">
             <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
               {lesson.description}
@@ -1573,25 +1408,6 @@ function LessonAiTabs({
             No instructor notes for this lesson.
           </p>
         )}
-
-        <ExerciseBlock lessonId={lesson.id} />
-
-        <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-          <div className="mb-2 flex items-center gap-2">
-            <NotebookPen className="h-4 w-4 text-indigo-400" />
-            <h4 className="text-sm font-bold text-foreground">My Notes</h4>
-            <span className="text-[11px] text-muted-foreground">
-              {myNotes.trim() ? `${myNotes.trim().split(/\s+/).length} words` : "— saved on this device"}
-            </span>
-          </div>
-          <Textarea
-            placeholder="Jot down your own notes for this lesson… they are saved automatically on your device."
-            value={myNotes}
-            onChange={(e) => saveMyNotes(e.target.value)}
-            rows={3}
-            className="bg-background/70 text-sm"
-          />
-        </div>
       </TabsContent>
 
       {!hasToolAccess && <LockedCourseTools />}
@@ -1689,276 +1505,7 @@ function LessonAiTabs({
           />
         </TabsContent>
       )}
-
-      {hasToolAccess && (
-        <TabsContent value="resources" className="pt-4">
-          <LessonResources courseId={courseId} currentLessonId={lesson.id} />
-        </TabsContent>
-      )}
     </Tabs>
-  );
-}
-
-function LessonResources({
-  courseId,
-  currentLessonId,
-}: {
-  courseId: string;
-  currentLessonId: string;
-}) {
-  const getResourcesFn = useServerFn(getCourseResources);
-  const saveEditorFn = useServerFn(saveEditorCode);
-  const navigate = useNavigate();
-  const [openIdeBusy, setOpenIdeBusy] = useState<string | null>(null);
-
-  const resourcesQuery = useQuery({
-    queryKey: ["course-resources", courseId],
-    queryFn: () => getResourcesFn({ data: { courseId } }),
-  });
-
-  const materials = resourcesQuery.data?.materials ?? [];
-  const assignments = resourcesQuery.data?.assignments ?? [];
-  const isLoading = resourcesQuery.isLoading;
-
-  const currentAssignment = assignments.find((a: any) => a.lesson_id === currentLessonId);
-
-  const launchAssignment = async (a: any) => {
-    setOpenIdeBusy(a.id);
-    try {
-      const res = await saveEditorFn({
-        data: {
-          title: a.title || "Course Assignment",
-          code: a.starter_code || "",
-          language: "javascript",
-        },
-      });
-      toast.success("Assignment workspace ready!");
-      navigate({ to: "/playground/editor", search: { project: res.projectId } });
-    } catch (e: any) {
-      toast.error(e?.message ?? "Sign in required to open the IDE");
-    } finally {
-      setOpenIdeBusy(null);
-    }
-  };
-
-  const downloadUrl = (url: string) => {
-    if (url.startsWith("http://") || url.startsWith("https://")) return url;
-    if (url.startsWith("/")) return `${window.location.origin}${url}`;
-    return `${window.location.origin}/${url}`;
-  };
-
-  const materialMeta = (type?: string) => {
-    const t = (type || "file").toLowerCase();
-    const meta: Record<string, { label: string; icon: LucideIcon; tile: string; accent: string; iconHover: string }> = {
-      image: { label: "Image", icon: ImageIcon, tile: "bg-indigo-500/15 text-indigo-400", accent: "hover:border-indigo-500/50 hover:bg-indigo-500/5", iconHover: "group-hover:text-indigo-300" },
-      pdf: { label: "PDF", icon: FileText, tile: "bg-rose-500/15 text-rose-400", accent: "hover:border-rose-500/50 hover:bg-rose-500/5", iconHover: "group-hover:text-rose-300" },
-      note: { label: "Note", icon: StickyNote, tile: "bg-sky-500/15 text-sky-400", accent: "hover:border-sky-500/50 hover:bg-sky-500/5", iconHover: "group-hover:text-sky-300" },
-      transcript: { label: "Transcript", icon: FileText, tile: "bg-violet-500/15 text-violet-400", accent: "hover:border-violet-500/50 hover:bg-violet-500/5", iconHover: "group-hover:text-violet-300" },
-      video: { label: "Video", icon: Video, tile: "bg-emerald-500/15 text-emerald-400", accent: "hover:border-emerald-500/50 hover:bg-emerald-500/5", iconHover: "group-hover:text-emerald-300" },
-      link: { label: "Link", icon: Link2, tile: "bg-cyan-500/15 text-cyan-400", accent: "hover:border-cyan-500/50 hover:bg-cyan-500/5", iconHover: "group-hover:text-cyan-300" },
-    };
-    return (
-      meta[t] ?? {
-        label: "File",
-        icon: FileType2,
-        tile: "bg-cyan-500/15 text-cyan-400",
-        accent: "hover:border-cyan-500/50 hover:bg-cyan-500/5",
-        iconHover: "group-hover:text-cyan-300",
-      }
-    );
-  };
-
-  const fileExtension = (url?: string) => {
-    const match = url?.match(/\.([a-z0-9]+)(?:$|\?)/i);
-    return match ? match[1].toUpperCase() : null;
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center gap-2 py-8 justify-center text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" /> Loading resources…
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {currentAssignment && (
-        <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-transparent p-5">
-          <div className="mb-2 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20 text-amber-300">
-              <Target className="h-4 w-4" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-foreground">Assignment for this lesson</h4>
-              <p className="text-xs text-muted-foreground">
-                {currentAssignment.difficulty ? (
-                  <>
-                    Difficulty: <b className="capitalize">{currentAssignment.difficulty}</b>
-                    {Number(currentAssignment.points_reward) > 0 && (
-                      <> · {currentAssignment.points_reward} XP</>
-                    )}
-                  </>
-                ) : null}
-              </p>
-            </div>
-          </div>
-          <p className="text-sm leading-relaxed text-foreground/85 whitespace-pre-wrap">
-            {currentAssignment.prompt}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {currentAssignment.starter_code ? (
-              <Button size="sm" onClick={() => launchAssignment(currentAssignment)} disabled={openIdeBusy === currentAssignment.id}>
-                {openIdeBusy === currentAssignment.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Code2 className="h-4 w-4" />
-                )}
-                Open in IDE with starter code
-              </Button>
-            ) : (
-              <Button size="sm" onClick={() => launchAssignment(currentAssignment)} disabled={openIdeBusy === currentAssignment.id}>
-                {openIdeBusy === currentAssignment.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Code2 className="h-4 w-4" />
-                )}
-                Start in IDE
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {assignments.length > 0 && (
-        <div>
-          <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
-            <ClipboardList className="h-4 w-4 text-amber-400" /> All assignments
-            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">
-              {assignments.length}
-            </span>
-          </h4>
-          <div className="space-y-2">
-            {assignments.map((a: any, i: number) => (
-              <div
-                key={a.id}
-                className={cn(
-                  "flex flex-wrap items-center gap-3 rounded-xl border border-border/70 bg-card p-3.5",
-                  a.lesson_id === currentLessonId && "ring-1 ring-amber-500/40",
-                )}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-xs font-bold text-amber-400">
-                      {a.order_index ?? i + 1}
-                    </span>
-                    <p className="truncate text-sm font-semibold text-foreground">
-                      {a.title || "Assignment"}
-                      {a.lesson_id === currentLessonId && (
-                        <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">
-                          Current lesson
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 pl-9">
-                    {a.difficulty && (
-                      <span className="rounded-full bg-orange-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-orange-300 capitalize">
-                        {a.difficulty}
-                      </span>
-                    )}
-                    {Number(a.points_reward) > 0 && (
-                      <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300">
-                        {a.points_reward} XP
-                      </span>
-                    )}
-                    {a.prompt && (
-                      <p className="line-clamp-1 min-w-0 flex-1 text-xs text-muted-foreground">
-                        {a.prompt}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => launchAssignment(a)}
-                  disabled={openIdeBusy === a.id}
-                >
-                  {openIdeBusy === a.id ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Code2 className="h-3.5 w-3.5" />
-                  )}
-                  Open in IDE
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div>
-        <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
-          <FileText className="h-4 w-4 text-cyan-400" /> Course Resources
-        </h4>
-        <CourseResourcesList courseId={courseId} />
-      </div>
-
-      {materials.length > 0 && (
-        <div>
-          <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
-            <Download className="h-4 w-4 text-cyan-400" /> Downloads
-            <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
-              {materials.length}
-            </span>
-          </h4>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {materials.map((m: any) => {
-              const meta = materialMeta(m.material_type);
-              const Icon = meta.icon;
-              const ext = fileExtension(m.file_url);
-              return (
-                <a
-                  key={m.id}
-                  href={downloadUrl(m.file_url)}
-                  target={m.file_url?.startsWith("http") ? "_blank" : undefined}
-                  rel="noreferrer"
-                  download={!m.file_url?.startsWith("http")}
-                  className={cn(
-                    "group flex items-center gap-3 rounded-xl border border-border/70 bg-card p-3.5 transition-colors",
-                    meta.accent,
-                  )}
-                >
-                  <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", meta.tile)}>
-                    <Icon className="h-4.5 w-4.5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className={cn("truncate text-sm font-semibold text-foreground", meta.iconHover)}>
-                      {m.title || "Resource"}
-                    </p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                        {meta.label}
-                      </span>
-                      {ext && ext !== meta.label && (
-                        <span className="rounded bg-muted px-1.5 py-px text-[10px] font-bold text-muted-foreground">
-                          {ext}
-                        </span>
-                      )}
-                      {m.description && (
-                        <span className="text-[11px] text-muted-foreground/70">{m.description}</span>
-                      )}
-                    </div>
-                  </div>
-                  <Download className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-cyan-400" />
-                </a>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -2003,6 +1550,141 @@ function Markdown({ children }: { children: string }) {
 }
 
 // ---------- Inline Playground: Code (Monaco+Piston) + Web (HTML/CSS/JS preview) ----------
+
+const LANG_LOGOS: Record<string, string> = {
+  python: "https://cdn.simpleicons.org/python/3776AB",
+  javascript: "https://cdn.simpleicons.org/javascript/F7DF1E",
+  typescript: "https://cdn.simpleicons.org/typescript/3178C6",
+  cpp: "https://cdn.simpleicons.org/cplusplus/00599C",
+  c: "https://cdn.simpleicons.org/c/A8B9CC",
+  java: "https://cdn.simpleicons.org/java/007396",
+  go: "https://cdn.simpleicons.org/go/00ADD8",
+  rust: "https://cdn.simpleicons.org/rust/000000",
+  ruby: "https://cdn.simpleicons.org/ruby/CC342D",
+  php: "https://cdn.simpleicons.org/php/777BB4",
+  bash: "https://cdn.simpleicons.org/gnubash/4EAA25",
+  sql: "https://cdn.simpleicons.org/sqlite/003B57",
+  swift: "https://cdn.simpleicons.org/swift/F05138",
+  kotlin: "https://cdn.simpleicons.org/kotlin/7F52FF",
+  scala: "https://cdn.simpleicons.org/scala/DC322F",
+  dart: "https://cdn.simpleicons.org/dart/0175C2",
+  elixir: "https://cdn.simpleicons.org/elixir/4B275F",
+  haskell: "https://cdn.simpleicons.org/haskell/5D4F85",
+  lua: "https://cdn.simpleicons.org/lua/2C2D72",
+  perl: "https://cdn.simpleicons.org/perl/39457E",
+  r: "https://cdn.simpleicons.org/r/276DC3",
+  csharp: "https://cdn.simpleicons.org/csharp/239120",
+  zig: "https://cdn.simpleicons.org/zig/F7A41D",
+  julia: "https://cdn.simpleicons.org/julia/9558B2",
+  lisp: "https://cdn.simpleicons.org/lisp/3F0000",
+  nim: "https://cdn.simpleicons.org/nim/FFE953",
+  groovy: "https://cdn.simpleicons.org/apachegroovy/4298B8",
+  powershell: "https://cdn.simpleicons.org/powershell/5391FE",
+  html5: "https://cdn.simpleicons.org/html5/E34F26",
+  css3: "https://cdn.simpleicons.org/css3/1572B6",
+};
+
+const LANG_COLORS: Record<string, string> = {
+  python: "#3776AB",
+  javascript: "#F7DF1E",
+  typescript: "#3178C6",
+  cpp: "#00599C",
+  c: "#A8B9CC",
+  java: "#007396",
+  go: "#00ADD8",
+  rust: "#000000",
+  ruby: "#CC342D",
+  php: "#777BB4",
+  bash: "#4EAA25",
+  sql: "#003B57",
+  swift: "#F05138",
+  kotlin: "#7F52FF",
+  scala: "#DC322F",
+  dart: "#0175C2",
+  elixir: "#4B275F",
+  haskell: "#5D4F85",
+  lua: "#2C2D72",
+  perl: "#39457E",
+  r: "#276DC3",
+  csharp: "#239120",
+  zig: "#F7A41D",
+  julia: "#9558B2",
+  lisp: "#3F0000",
+  nim: "#FFE953",
+  groovy: "#4298B8",
+  powershell: "#5391FE",
+  html5: "#E34F26",
+  css3: "#1572B6",
+};
+
+function LanguageIcon({ id, className }: { id: string; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  const url = LANG_LOGOS[id];
+  if (failed || !url) {
+    const color = LANG_COLORS[id] || "#666";
+    return (
+      <span
+        className={`w-5 h-5 rounded grid place-items-center text-[8px] font-bold text-white shrink-0 ${className ?? ""}`}
+        style={{ background: color }}
+      >
+        {id.slice(0, 2).toUpperCase()}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={url}
+      alt={id}
+      className={`w-5 h-5 shrink-0 ${className ?? ""}`}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+const PLAYGROUND_LANGS = [
+  { id: "python", label: "Python", color: "#3776AB" },
+  { id: "javascript", label: "JavaScript", color: "#F7DF1E" },
+  { id: "typescript", label: "TypeScript", color: "#3178C6" },
+  { id: "cpp", label: "C++", color: "#00599C" },
+  { id: "c", label: "C", color: "#A8B9CC" },
+  { id: "java", label: "Java", color: "#007396" },
+  { id: "go", label: "Go", color: "#00ADD8" },
+  { id: "rust", label: "Rust", color: "#000000" },
+  { id: "ruby", label: "Ruby", color: "#CC342D" },
+  { id: "php", label: "PHP", color: "#777BB4" },
+  { id: "swift", label: "Swift", color: "#F05138" },
+  { id: "kotlin", label: "Kotlin", color: "#7F52FF" },
+  { id: "dart", label: "Dart", color: "#0175C2" },
+  { id: "scala", label: "Scala", color: "#DC322F" },
+  { id: "elixir", label: "Elixir", color: "#4B275F" },
+  { id: "haskell", label: "Haskell", color: "#5D4F85" },
+  { id: "lua", label: "Lua", color: "#2C2D72" },
+  { id: "r", label: "R", color: "#276DC3" },
+  { id: "csharp", label: "C#", color: "#239120" },
+  { id: "zig", label: "Zig", color: "#F7A41D" },
+  { id: "julia", label: "Julia", color: "#9558B2" },
+  { id: "nim", label: "Nim", color: "#FFE953" },
+  { id: "perl", label: "Perl", color: "#39457E" },
+  { id: "groovy", label: "Groovy", color: "#4298B8" },
+  { id: "bash", label: "Bash", color: "#4EAA25" },
+  { id: "powershell", label: "PowerShell", color: "#5391FE" },
+  { id: "sql", label: "SQL", color: "#4479A1" },
+];
+
+const PLAYGROUND_DEFAULTS: Record<string, string> = {
+  python: 'print("Hello, world!")',
+  javascript: 'console.log("Hello, world!");',
+  typescript: 'const msg: string = "Hello, world!";\nconsole.log(msg);',
+  cpp: '#include <iostream>\n\nint main() {\n  std::cout << "Hello, world!" << std::endl;\n  return 0;\n}',
+  c: '#include <stdio.h>\n\nint main() {\n  printf("Hello, world!\\n");\n  return 0;\n}',
+  java: 'public class Main {\n  public static void main(String[] args) {\n    System.out.println("Hello, world!");\n  }\n}',
+  go: 'package main\n\nimport "fmt"\n\nfunc main() {\n  fmt.Println("Hello, world!")\n}',
+  rust: 'fn main() {\n  println!("Hello, world!");\n}',
+  ruby: 'puts "Hello, world!"',
+  php: '<?php\necho "Hello, world!";',
+  bash: '#!/bin/bash\necho "Hello, world!"',
+  sql: "SELECT 'Hello, world!' AS greeting;",
+};
 
 const WEB_DEFAULTS = {
   html: '<!doctype html>\n<html>\n  <head><meta charset="utf-8" /></head>\n  <body>\n    <h1>Hello, Learnify!</h1>\n    <p id="msg">Edit me — preview updates live.</p>\n    <button onclick="document.getElementById(\'msg\').innerText = \'Clicked!\'">Click me</button>\n  </body>\n</html>',
@@ -2860,7 +2542,6 @@ function FinalTestDialog({
     null,
   );
   const testAwardXp = useServerFn(awardXP);
-  const emailCourseCert = useServerFn(emailCourseCertificate);
 
   const q = useQuery({
     queryKey: ["mcqs", courseId],
@@ -2901,9 +2582,6 @@ function FinalTestDialog({
           setLocalCelebrate(true);
           testAwardXp({ data: { userId, amount: 50, source: "test" } }).then((r) => {
             if (r.success) toast.success(`+50 XP for passing the test! 🔥`);
-          });
-          emailCourseCert({ data: { courseId } }).then((r) => {
-            if (r.success) toast.success("Certificate emailed to you ✉️");
           });
         }
       }

@@ -47,6 +47,10 @@ export const Route = createFileRoute("/api/webhooks/cashfree-subscription")({
               .join("");
             if (sig !== expected) {
               console.warn("Cashfree subscription webhook: invalid signature", { requestId });
+              return new Response(JSON.stringify({ error: "Invalid signature" }), {
+                status: 401,
+                headers: { "Content-Type": "application/json" },
+              });
             }
           }
 

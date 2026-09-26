@@ -4,7 +4,6 @@ import { Brain, Lightbulb, Network, ChevronDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConceptGraph } from "./ConceptGraph";
 import { ExplainLikeI12 } from "./ExplainLikeI12";
-import { toast } from "sonner";
 
 interface VisualLearningPanelProps {
   lessonId: string;
@@ -22,14 +21,11 @@ export function VisualLearningPanel({
   defaultTab = "concepts",
 }: VisualLearningPanelProps) {
   const [tab, setTab] = useState<"concepts" | "explain">(defaultTab);
-  const [regenerating, setRegenerating] = useState(false);
   const queryClient = useQueryClient();
 
   const {
     data: graphData,
     isLoading: graphLoading,
-    isError: graphError,
-    error: graphErrorObj,
     refetch: refetchGraph,
   } = useQuery({
     queryKey: ["concept-graph", lessonId],
@@ -42,27 +38,11 @@ export function VisualLearningPanel({
     },
     enabled: tab === "concepts",
     staleTime: 1000 * 60 * 60,
-    retry: false,
   });
 
   const handleRegenerate = async () => {
-    if (regenerating) return;
-    setRegenerating(true);
-    try {
-      // Deleting the cached row first means the refetch below returns a
-      // freshly generated map instead of the cached one.
-      const { regenerateConceptGraph } = await import("@/lib/concept-graph.functions");
-      await regenerateConceptGraph({
-        data: { lessonId, courseId, lessonTitle, lessonContent },
-      });
-      await refetchGraph();
-      toast.success("Concept map regenerated");
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to regenerate concept map");
-      queryClient.invalidateQueries({ queryKey: ["concept-graph", lessonId] });
-    } finally {
-      setRegenerating(false);
-    }
+    queryClient.invalidateQueries({ queryKey: ["concept-graph", lessonId] });
+    refetchGraph();
   };
 
   const TABS = [
@@ -115,8 +95,6 @@ export function VisualLearningPanel({
           nodes={graphData?.nodes || []}
           edges={graphData?.edges || []}
           loading={graphLoading}
-          regenerating={regenerating}
-          error={graphError ? (graphErrorObj as any)?.message || "Failed to generate concept map" : null}
           onRegenerate={handleRegenerate}
         />
       )}

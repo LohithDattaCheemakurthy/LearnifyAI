@@ -30,20 +30,15 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { UserAvatarMenu } from "@/components/UserAvatarMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { CurrencySelector } from "@/components/CurrencySelector";
 import { Logo } from "@/components/Logo";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
+import { initAutomaticLocale } from "@/lib/locale-detection";
+import { useEffect } from "react";
 import type { ReactNode } from "react";
-const loadSupportAgent = () =>
-  import("@/components/GlobalSupportAgent").then((m) => ({ default: m.GlobalSupportAgent }));
 const GlobalSupportAgent = lazy(() =>
-  loadSupportAgent().catch((err) => {
-    console.warn("[app] Support agent chunk failed to load, retrying once…", err);
-    return loadSupportAgent().catch(() => ({ default: () => null }));
-  }),
+  import("@/components/GlobalSupportAgent").then((m) => ({ default: m.GlobalSupportAgent })),
 );
 
 interface NavItem {
@@ -217,19 +212,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   };
 
-  const LearnerSurface = /^\/(courses|course|playground|studio|course-builder)(\/|$)/.test(path);
+  useEffect(() => {
+    initAutomaticLocale();
+  }, []);
 
   const UserFooter = () => (
-    <div className="border-t p-3 space-y-2 bg-card/60">
-      <div className="flex items-center justify-between gap-2">
-        <UserAvatarMenu showName className="w-full min-w-0" />
-      </div>
-      <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-border/40">
-        <CurrencySelector className="flex-1 min-w-0" />
-        <div className="flex items-center gap-1 shrink-0">
-          <LanguageSwitcher />
-          <ThemeToggle />
-        </div>
+    <div className="border-t p-3 flex items-center gap-2">
+      <UserAvatarMenu showName />
+      <div className="ml-auto flex items-center gap-1">
+        <ThemeToggle />
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import {
   BookOpen,
   Trophy,
+  GraduationCap,
   Loader2,
   Award,
   ArrowRight,
@@ -31,10 +32,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { getCleanBannerUrl } from "@/lib/utils";
 import { getCourseActionLabel } from "@/lib/course-player";
 import { logDailyUsage } from "@/lib/onboarding.functions";
 import { RecommendedCourses } from "@/components/RecommendedCourses";
-import { CourseCoverImage } from "@/components/course/CourseCoverImage";
 import { DashboardEventsJobs } from "@/components/DashboardEventsJobs";
 import { DashboardSkeleton, StatCardSkeleton } from "@/components/Skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,6 +50,9 @@ function DashboardPage() {
   const { t } = useTranslation();
   const { user, isAdmin } = useAuth();
   const name = (user?.user_metadata?.full_name as string) ?? user?.email?.split("@")[0] ?? "there";
+  const [brokenImgs, setBrokenImgs] = useState<Set<string>>(new Set());
+
+  const markBroken = (id: string) => setBrokenImgs((p) => new Set(p).add(id));
 
   const logDailyFn = useServerFn(logDailyUsage);
   useEffect(() => {
@@ -580,12 +584,19 @@ function DashboardPage() {
                   >
                     <Link to="/courses/$slug" params={{ slug: e.courses?.slug }} className="block">
                       <div className="aspect-video bg-muted overflow-hidden">
-                        <CourseCoverImage
-                          coverUrl={e.courses?.cover_url}
-                          slug={e.courses?.slug}
-                          title={e.courses?.title}
-                          imgClassName="group-hover:scale-105 transition"
-                        />
+                        {e.courses?.cover_url && !brokenImgs.has(e.courses.slug) ? (
+                          <img
+                            src={getCleanBannerUrl(e.courses.cover_url) ?? e.courses.cover_url}
+                            alt={e.courses.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition"
+                            loading="lazy"
+                            onError={() => markBroken(e.courses.slug)}
+                          />
+                        ) : (
+                          <div className="w-full h-full grid place-items-center">
+                            <GraduationCap className="h-10 w-10 text-muted-foreground" />
+                          </div>
+                        )}
                       </div>
                     </Link>
                     <div className="p-4 flex-1 flex flex-col gap-2 min-w-0">

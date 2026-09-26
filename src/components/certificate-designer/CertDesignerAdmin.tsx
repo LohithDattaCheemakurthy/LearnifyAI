@@ -13,9 +13,6 @@ import {
   saveCanvaTemplate,
   deleteCanvaTemplate,
   seedAllTemplates,
-  listSvgTemplates,
-  fieldsToElements,
-  themeToDesign,
 } from "@/lib/canva-cert.functions";
 import {
   getCertificateStats,
@@ -25,16 +22,9 @@ import {
   saveCertSettings,
   bulkIssueCertificates,
 } from "@/lib/certificate-admin.functions";
-import {
-  adminTeamMembers,
-  adminSetTeamRole,
-  adminSearchUsers,
-} from "@/lib/admin-users.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { DesignerWorkspace } from "./DesignerWorkspace";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import html2canvas from "html2canvas-pro";
 import jsPDF from "jspdf";
@@ -116,8 +106,6 @@ import {
   Image,
   Square,
   FileUp,
-  UserPlus,
-  Loader2,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1111,7 +1099,7 @@ function OverviewScreen({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <KPICard
           label="Certificates Issued"
           value={totalCerts.toLocaleString()}
@@ -1159,7 +1147,7 @@ function OverviewScreen({
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div style={{ display: "grid", gridTemplateColumns: "4fr 3fr 3fr", gap: 16 }}>
         <SectionCard
           title="Recent Certificates"
           action={
@@ -1235,7 +1223,7 @@ function OverviewScreen({
         </SectionCard>
 
         <SectionCard title="Quick Actions">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {[
               {
                 label: "Create Certificate",
@@ -1727,15 +1715,15 @@ function AllCertsScreen({
       </div>
 
       <div
-        className="overflow-x-auto no-scrollbar"
         style={{
           background: "white",
           border: `1px solid ${BD}`,
           borderRadius: 12,
+          overflow: "hidden",
           boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
         }}
       >
-        <table style={{ width: "100%", minWidth: 650, borderCollapse: "collapse" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${BD}`, background: BG }}>
               <th style={{ padding: "10px 16px", textAlign: "left", width: 36 }}>
@@ -2101,7 +2089,6 @@ function TemplatesScreen({
   handleSeed,
   handleEdit,
   handleDelete,
-  handleNew,
   isLoading,
 }: {
   setTab: (t: string) => void;
@@ -2109,7 +2096,6 @@ function TemplatesScreen({
   handleSeed: () => void;
   handleEdit: (t: CanvaTemplate) => void;
   handleDelete: (id: string) => void;
-  handleNew: () => void;
   isLoading: boolean;
 }) {
   const [activeChip, setActiveChip] = useState("All");
@@ -2130,13 +2116,46 @@ function TemplatesScreen({
     "Bootcamp",
   ];
 
-  const svgTemplatesFn = useServerFn(listSvgTemplates);
-  const svgQuery = useQuery({
-    queryKey: ["svg-cert-templates"],
-    queryFn: () => svgTemplatesFn().catch(() => [] as any[]),
-    staleTime: 60_000,
-  });
-  const ALL_PUBLIC_SVG_TEMPLATES = svgQuery.data ?? [];
+  // Merge DB templates with mock for display
+  const ALL_PUBLIC_SVG_TEMPLATES = useMemo(() => [
+    { folder: "02-Python-Programming", name: "Python Programming", count: 16, category: "Technology" },
+    { folder: "03-Web-Development", name: "Web Development", count: 18, category: "Technology" },
+    { folder: "04-Excel-Data-Analysis", name: "Excel & Data Analysis", count: 23, category: "Business" },
+    { folder: "05-Data-Structures", name: "Data Structures & Algorithms", count: 20, category: "Technology" },
+    { folder: "01-UIUX-Design", name: "UI/UX Design", count: 17, category: "Design" },
+    { folder: "06-Digital-Marketing", name: "Digital Marketing", count: 25, category: "Marketing" },
+    { folder: "07-AI-Fundamentals", name: "AI Fundamentals", count: 14, category: "AI & Data" },
+    { folder: "08-Data-Structures-2", name: "Advanced Data Structures", count: 20, category: "Technology" },
+  ].flatMap((cat) =>
+    Array.from({ length: cat.count }, (_, i) => {
+      const num = i + 1;
+      const url = `/templates/${cat.folder}/${num}.svg`;
+      return {
+        name: `${cat.name} #${num}`,
+        badge: num <= 3 ? "Premium" : "Professional",
+        badgeColor: num <= 3 ? "#92400E" : "#1E40AF",
+        badgeBg: num <= 3 ? "#FEF3C7" : "#DBEAFE",
+        bg_image_url: url,
+        thumbnail_url: url,
+        theme: "navy",
+        rating: 4.8,
+        reviews: 450 + num * 12,
+        downloads: `${(1 + (num % 6) * 0.4).toFixed(1)}k`,
+        dbTemplate: {
+          id: `${cat.folder}-${num}`,
+          name: `${cat.name} Template #${num}`,
+          category: cat.category,
+          bg_image_url: url,
+          thumbnail_url: url,
+          fields_json: null,
+          theme_colors: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          created_by: null,
+        } as CanvaTemplate,
+      };
+    }),
+  ), []);
 
   // Merge DB templates with public SVG templates (deduplicated)
   const displayTemplates = useMemo(() => {
@@ -2167,30 +2186,7 @@ function TemplatesScreen({
       const key = (t.bg_image_url || t.name || "").trim().toLowerCase();
       if (key && !seen.has(key)) {
         seen.add(key);
-        list.push({
-          name: t.name,
-          badge: "SVG",
-          badgeColor: "#065F46",
-          badgeBg: "#D1FAE5",
-          bg_image_url: t.bg_image_url,
-          thumbnail_url: t.thumbnail_url || t.bg_image_url,
-          theme: "navy",
-          rating: 4.7,
-          reviews: 300,
-          downloads: "1.4k",
-          dbTemplate: {
-            id: "new",
-            name: t.name,
-            category: t.category || "Professional",
-            bg_image_url: t.bg_image_url,
-            thumbnail_url: t.thumbnail_url || t.bg_image_url,
-            fields_json: null,
-            theme_colors: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            created_by: null,
-          } as CanvaTemplate,
-        });
+        list.push(t);
       }
     });
     return list;
@@ -2203,105 +2199,195 @@ function TemplatesScreen({
     return true;
   });
 
-  const [previewModal, setPreviewModal] = useState<any | null>(null);
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Search & Actions Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 justify-between">
-        <div className="flex flex-wrap items-center gap-2 flex-1">
-          <div className="relative min-w-[220px] flex-1 sm:flex-initial">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
-            <input
-              value={searchT}
-              onChange={(e) => setSearchT(e.target.value)}
-              placeholder="Search templates..."
-              className="w-full pl-8 pr-3 h-9 bg-background border border-border/80 rounded-xl text-xs font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-xs"
-            />
-          </div>
-
-          <button
-            onClick={() => {
-              setSearchT("");
-              setActiveChip("All");
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ position: "relative", flex: "0 0 220px" }}>
+          <Search
+            size={14}
+            style={{
+              position: "absolute",
+              left: 10,
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: TX3,
             }}
-            className="px-3 py-1.5 rounded-xl border border-border/80 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
-          >
-            Reset
-          </button>
+          />
+          <input
+            value={searchT}
+            onChange={(e) => setSearchT(e.target.value)}
+            placeholder="Search templates..."
+            style={{
+              width: "100%",
+              paddingLeft: 32,
+              paddingRight: 12,
+              height: 36,
+              border: `1px solid ${BD}`,
+              borderRadius: 8,
+              fontSize: 13,
+              color: TX,
+              outline: "none",
+            }}
+          />
         </div>
-
-        <div className="flex items-center gap-2 shrink-0">
+        {["Categories", "Style", "Theme", "Access"].map((f) => (
+          <button
+            key={f}
+            style={{
+              padding: "6px 12px",
+              border: `1px solid ${BD}`,
+              borderRadius: 8,
+              background: "white",
+              cursor: "pointer",
+              fontSize: 13,
+              color: TX2,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            {f}
+            <ChevronDown size={13} />
+          </button>
+        ))}
+        <button
+          onClick={() => { setSearchT(""); setActiveChip("All"); }}
+          style={{
+            padding: "6px 12px",
+            border: `1px solid ${BD}`,
+            borderRadius: 8,
+            background: "white",
+            cursor: "pointer",
+            fontSize: 13,
+            color: ER,
+          }}
+        >
+          Reset
+        </button>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <Btn variant="outline" onClick={handleSeed}>
             <RefreshCw size={13} />
             Seed Templates
           </Btn>
-          <Btn variant="primary" onClick={handleNew}>
+          <Btn variant="primary" onClick={() => setTab("designer")}>
             <Plus size={14} />
             New Template
           </Btn>
         </div>
       </div>
 
-      {/* Category Pills */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {chips.map((c) => (
           <button
             key={c}
             onClick={() => setActiveChip(c)}
-            className={cn(
-              "px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer",
-              activeChip === c
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground",
-            )}
+            style={{
+              padding: "5px 14px",
+              borderRadius: 999,
+              fontSize: 13,
+              fontWeight: 500,
+              border: "none",
+              background: activeChip === c ? P : "#F3F4F6",
+              color: activeChip === c ? "white" : "#374151",
+              cursor: "pointer",
+            }}
           >
             {c}
           </button>
         ))}
       </div>
 
-      {/* Header Info */}
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-muted-foreground tracking-wide uppercase">
-          Certificate SVG Templates ({filtered.length})
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: TX }}>
+          All Certificate SVG Templates ({filtered.length})
         </span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <select
+            style={{
+              border: `1px solid ${BD}`,
+              borderRadius: 6,
+              padding: "5px 10px",
+              fontSize: 13,
+              color: TX2,
+            }}
+          >
+            <option>Most Recent</option>
+            <option>Most Popular</option>
+            <option>Top Rated</option>
+          </select>
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))",
+            gap: 16,
+          }}
+        >
+          {Array.from({ length: 10 }).map((_, i) => (
             <div
               key={i}
-              className="rounded-2xl border border-border/60 bg-card overflow-hidden animate-pulse"
+              style={{
+                background: "white",
+                border: `1px solid ${BD}`,
+                borderRadius: 12,
+                overflow: "hidden",
+              }}
             >
-              <div className="h-44 bg-muted/60" />
-              <div className="p-3.5 space-y-2">
-                <div className="h-4 bg-muted/60 rounded w-3/4" />
-                <div className="h-3 bg-muted/60 rounded w-1/2" />
+              <div
+                style={{
+                  height: 140,
+                  background: "linear-gradient(90deg,#F3F4F6 25%,#E5E7EB 50%,#F3F4F6 75%)",
+                  backgroundSize: "200% 100%",
+                }}
+              />
+              <div style={{ padding: 12 }}>
+                <div
+                  style={{ height: 12, background: "#F3F4F6", borderRadius: 4, marginBottom: 8 }}
+                />
+                <div style={{ height: 10, background: "#F3F4F6", borderRadius: 4, width: "60%" }} />
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))",
+            gap: 16,
+          }}
+        >
           {filtered.map((t, i) => (
             <div
               key={i}
-              className="group rounded-2xl border border-border/70 bg-card hover:border-primary/50 hover:shadow-xl transition-all duration-200 overflow-hidden flex flex-col justify-between"
+              onClick={() => handleEdit(t.dbTemplate)}
+              style={{
+                background: "white",
+                border: `1px solid ${BD}`,
+                borderRadius: 12,
+                overflow: "hidden",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                cursor: "pointer",
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.12)";
+                e.currentTarget.style.transform = "scale(1.01)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.06)";
+                e.currentTarget.style.transform = "scale(1)";
+              }}
             >
-              <div
-                className="relative w-full aspect-[1.414/1] bg-slate-900/5 dark:bg-slate-900/40 cursor-pointer overflow-hidden flex items-center justify-center p-2"
-                onClick={() => setPreviewModal(t)}
-              >
+              <div style={{ position: "relative", width: "100%", height: 140, background: "#f8fafc" }}>
                 {t.bg_image_url ? (
                   <img
                     src={t.bg_image_url}
                     alt={t.name}
-                    className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 rounded-lg"
+                    style={{ width: "100%", height: "100%", objectFit: "contain" }}
                     onError={(e) => {
                       (e.target as HTMLElement).style.display = "none";
                     }}
@@ -2309,210 +2395,1521 @@ function TemplatesScreen({
                 ) : (
                   <CertThumbnail theme={t.theme} w={220} h={140} />
                 )}
-
-                {/* Overlay hover actions */}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="h-8 text-xs font-semibold shadow-lg"
-                    onClick={(e: React.MouseEvent) => {
-                      e.stopPropagation();
-                      setPreviewModal(t);
-                    }}
-                  >
-                    <Eye className="h-3.5 w-3.5 mr-1" /> Quick Preview
-                  </Button>
-                </div>
-
-                {/* Favorite heart */}
                 <button
-                  onClick={(e: React.MouseEvent) => {
+                  onClick={(e) => {
                     e.stopPropagation();
                     const ns = new Set(favorites);
                     favorites.has(i) ? ns.delete(i) : ns.add(i);
                     setFavorites(ns);
                   }}
-                  className="absolute top-2.5 right-2.5 h-7 w-7 rounded-full bg-background/90 backdrop-blur border border-border/60 flex items-center justify-center shadow-sm cursor-pointer z-10"
+                  style={{
+                    position: "absolute",
+                    top: 8,
+                    right: 8,
+                    background: "rgba(255,255,255,0.9)",
+                    border: "none",
+                    borderRadius: "50%",
+                    width: 28,
+                    height: 28,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
                   <Heart
-                    size={13}
-                    color={favorites.has(i) ? "#EF4444" : "#64748B"}
-                    fill={favorites.has(i) ? "#EF4444" : "none"}
+                    size={14}
+                    color={favorites.has(i) ? ER : TX2}
+                    fill={favorites.has(i) ? ER : "none"}
                   />
                 </button>
               </div>
-
-              <div className="p-3.5 flex flex-col gap-3 flex-1 justify-between border-t border-border/40">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-xs font-bold text-foreground truncate group-hover:text-primary transition-colors">
-                      {t.name}
-                    </h4>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      {t.dbTemplate?.category || "Professional"} · High-Res SVG
-                    </p>
-                  </div>
+              <div style={{ padding: 12 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 8,
+                  }}
+                >
                   <span
-                    className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
-                    style={{ background: t.badgeBg, color: t.badgeColor }}
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: TX,
+                      flex: 1,
+                      minWidth: 0,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {t.name}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      background: t.badgeBg,
+                      color: t.badgeColor,
+                      flexShrink: 0,
+                      marginLeft: 6,
+                    }}
                   >
                     {t.badge}
                   </span>
                 </div>
-
-                <div className="flex items-center gap-2 pt-1 border-t border-border/30">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2.5 text-xs flex-1 font-semibold"
-                    onClick={() => setPreviewModal(t)}
+                <div
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+                >
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(t.bg_image_url, "_blank");
+                      }}
+                      style={{
+                        padding: 4,
+                        border: `1px solid ${BD}`,
+                        borderRadius: 6,
+                        background: "white",
+                        cursor: "pointer",
+                      }}
+                      title="View SVG File"
+                    >
+                      <Eye size={12} color={TX2} />
+                    </button>
+                  </div>
+                  <Btn
+                    variant="primary"
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                      e.stopPropagation();
+                      handleEdit(t.dbTemplate);
+                    }}
+                    style={{ fontSize: 11, padding: "4px 12px" }}
                   >
-                    <Eye className="h-3.5 w-3.5 mr-1" /> Preview
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="h-8 px-3 text-xs flex-1 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
-                    onClick={() => handleEdit(t.dbTemplate)}
-                  >
-                    <Edit className="h-3.5 w-3.5 mr-1" /> Edit
-                  </Button>
+                    Edit Certificate
+                  </Btn>
                 </div>
               </div>
             </div>
           ))}
         </div>
       )}
-
-      {/* Full HD Template Preview Modal */}
-      {previewModal && (
-        <Dialog open={!!previewModal} onOpenChange={() => setPreviewModal(null)}>
-          <DialogContent className="max-w-3xl p-6 bg-card border-border/80">
-            <DialogHeader className="pb-3 border-b border-border/40">
-              <div className="flex items-center justify-between">
-                <div>
-                  <DialogTitle className="text-lg font-bold font-display text-foreground">
-                    {previewModal.name}
-                  </DialogTitle>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {previewModal.dbTemplate?.category || "Professional"} Template · Standard A4
-                    Landscape (842 × 595 px)
-                  </p>
-                </div>
-              </div>
-            </DialogHeader>
-
-            <div className="my-3 rounded-xl border border-border/60 bg-muted/20 p-3 flex items-center justify-center overflow-hidden">
-              <div className="relative w-full aspect-[1.414/1] max-h-[420px] rounded-lg overflow-hidden shadow-xl bg-white flex items-center justify-center">
-                {previewModal.bg_image_url ? (
-                  <img
-                    src={previewModal.bg_image_url}
-                    alt={previewModal.name}
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <CertThumbnail theme={previewModal.theme} w={600} h={400} />
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t border-border/40 gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(previewModal.bg_image_url, "_blank")}
-                className="text-xs"
-              >
-                <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> View Raw SVG
-              </Button>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPreviewModal(null)}
-                  className="text-xs"
-                >
-                  Close
-                </Button>
-                <Button
-                  size="sm"
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold px-4"
-                  onClick={() => {
-                    const tmpl = previewModal.dbTemplate;
-                    setPreviewModal(null);
-                    handleEdit(tmpl);
-                  }}
-                >
-                  <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Open in Studio Designer
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }
 
 // ─── Screen: Designer (wraps existing DesignerWorkspace) ─────────────────────
-function DesignerStartScreen({
-  dbTemplates,
-  handleSeed,
-  handleEdit,
-  handleDelete,
-  isLoading,
-  onNewTemplate,
-}: {
-  dbTemplates: CanvaTemplate[];
-  handleSeed: () => void;
-  handleEdit: (t: CanvaTemplate) => void;
-  handleDelete: (id: string) => void;
-  isLoading: boolean;
-  onNewTemplate: () => void;
-}) {
+function DesignerCanvasScreen() {
+  const [selectedEl, setSelectedEl] = useState<string | null>("recipient");
+  const [zoom, setZoom] = useState(65);
+  const [showGrid, setShowGrid] = useState(false);
+  const [device, setDevice] = useState("desktop");
+  const [designTab, setDesignTab] = useState("Design");
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  const [canvasElements, setCanvasElements] = useState([
+    {
+      id: "recipient",
+      text: "Alex Rivera",
+      fontFamily: "Great Vibes",
+      fontSize: 80,
+      fontColor: "#ffffff",
+      bold: false,
+      italic: true,
+      underline: false,
+      align: "center",
+      opacity: 100,
+      x: 561,
+      y: 450,
+      rotation: 0,
+      width: 722,
+      height: 120,
+      type: "text",
+    },
+    {
+      id: "course",
+      text: "Full Stack Web Development",
+      fontFamily: "Playfair Display",
+      fontSize: 34,
+      fontColor: "#C9A227",
+      bold: true,
+      italic: false,
+      underline: false,
+      align: "center",
+      opacity: 100,
+      x: 561,
+      y: 570,
+      rotation: 0,
+      width: 722,
+      height: 60,
+      type: "text",
+    },
+  ]);
+
+  const activeEl = canvasElements.find((el) => el.id === selectedEl);
+
+  const updateActiveEl = (updates: Partial<(typeof canvasElements)[0]>) => {
+    if (!selectedEl) return;
+    setCanvasElements((prev) =>
+      prev.map((el) => (el.id === selectedEl ? { ...el, ...updates } : el)),
+    );
+  };
+
+  const handleDragStart = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setSelectedEl(id);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const initialEl = canvasElements.find((el) => el.id === id);
+    if (!initialEl) return;
+    const initialX = initialEl.x;
+    const initialY = initialEl.y;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - startX;
+      const dy = moveEvent.clientY - startY;
+      const zoomFactor = zoom / 100;
+      setCanvasElements((prev) =>
+        prev.map((el) =>
+          el.id === id
+            ? {
+                ...el,
+                x: Math.round(initialX + dx / zoomFactor),
+                y: Math.round(initialY + dy / zoomFactor),
+              }
+            : el,
+        ),
+      );
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
+  const handleAddElement = (type: string) => {
+    const newId = `element-${Date.now()}`;
+    const newEl = {
+      id: newId,
+      text: `New ${type.toUpperCase()}`,
+      fontFamily: "Inter",
+      fontSize: 24,
+      fontColor: "#ffffff",
+      bold: false,
+      italic: false,
+      underline: false,
+      align: "center" as const,
+      opacity: 100,
+      x: 561,
+      y: 300,
+      rotation: 0,
+      width: 200,
+      height: 60,
+      type: type,
+    };
+    setCanvasElements((prev) => [...prev, newEl]);
+    setSelectedEl(newId);
+    toast.success(`Added new ${type} element!`);
+  };
+
+  const handleDeleteActive = () => {
+    if (!selectedEl) return;
+    if (selectedEl === "recipient" || selectedEl === "course") {
+      toast.error("Primary elements cannot be deleted");
+      return;
+    }
+    setCanvasElements((prev) => prev.filter((el) => el.id !== selectedEl));
+    setSelectedEl(null);
+    toast.success("Element deleted");
+  };
+
+  const handleDuplicateActive = () => {
+    if (!selectedEl) return;
+    const src = canvasElements.find((el) => el.id === selectedEl);
+    if (!src) return;
+    const newId = `element-${Date.now()}`;
+    const copy = {
+      ...src,
+      id: newId,
+      text: `${src.text} (Copy)`,
+      x: src.x + 20,
+      y: src.y + 20,
+    };
+    setCanvasElements((prev) => [...prev, copy]);
+    setSelectedEl(newId);
+    toast.success("Element duplicated");
+  };
+
+  const handleDownload = (format: "png" | "pdf") => {
+    toast.promise(new Promise((resolve) => setTimeout(resolve, 1500)), {
+      loading: `Generating high-resolution ${format.toUpperCase()}...`,
+      success: `Successfully downloaded certificate ${format.toUpperCase()}!`,
+      error: "Export failed.",
+    });
+  };
+
+  const handleSave = () => {
+    toast.success("Certificate template saved successfully!");
+  };
+
+  const elementsList = [
+    { id: "text", label: "Text", icon: <Type size={18} color={P} /> },
+    { id: "image", label: "Image", icon: <Image size={18} color={IN} /> },
+    { id: "shape", label: "Shape", icon: <Square size={18} color={SG} /> },
+    { id: "qrcode", label: "QR Code", icon: <QrCode size={18} color={TX} /> },
+    { id: "signature", label: "Signature", icon: <Pen size={18} color={WP} /> },
+    { id: "date", label: "Date", icon: <Calendar size={18} color={ER} /> },
+    { id: "id", label: "ID / No.", icon: <Hash size={18} color={TX2} /> },
+    { id: "upload", label: "Upload", icon: <FileUp size={18} color={WO} /> },
+  ];
+
+  const dynamicFields = [
+    "Student Name",
+    "Course Name",
+    "Issue Date",
+    "Expiry Date",
+    "Certificate ID",
+    "Score",
+    "Grade",
+    "Instructor",
+  ];
+
+  const renderCertificateSvg = (isModal = false) => {
+    const recipient = canvasElements.find((el) => el.id === "recipient")!;
+    const course = canvasElements.find((el) => el.id === "course")!;
+
+    return (
+      <svg
+        width="100%"
+        height="100%"
+        viewBox="0 0 1122 794"
+        xmlns="http://www.w3.org/2000/svg"
+        preserveAspectRatio="xMidYMid meet"
+        style={{ display: "block" }}
+      >
+        <defs>
+          <linearGradient id="canvasBg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#0a0a2e" />
+            <stop offset="100%" stopColor="#1a1a4e" />
+          </linearGradient>
+        </defs>
+        <rect width="1122" height="794" fill="url(#canvasBg)" />
+
+        {!isModal && showGrid && (
+          <g>
+            {Array.from({ length: 40 }).map((_, i) => (
+              <line
+                key={`v-${i}`}
+                x1={i * 30}
+                y1={0}
+                x2={i * 30}
+                y2={794}
+                stroke="rgba(255,255,255,0.05)"
+                strokeWidth={1}
+              />
+            ))}
+            {Array.from({ length: 30 }).map((_, i) => (
+              <line
+                key={`h-${i}`}
+                x1={0}
+                y1={i * 30}
+                x2={1122}
+                y2={i * 30}
+                stroke="rgba(255,255,255,0.05)"
+                strokeWidth={1}
+              />
+            ))}
+          </g>
+        )}
+
+        <rect
+          x="28"
+          y="28"
+          width="1066"
+          height="738"
+          fill="none"
+          stroke="#C9A227"
+          strokeWidth="5"
+        />
+        <rect
+          x="42"
+          y="42"
+          width="1038"
+          height="710"
+          fill="none"
+          stroke="rgba(201,162,39,0.4)"
+          strokeWidth="2"
+        />
+        <path d="M28,28 L140,28 L140,38 L38,38 L38,140 L28,140Z" fill="#C9A227" opacity="0.85" />
+        <path
+          d="M1094,28 L982,28 L982,38 L1084,38 L1084,140 L1094,140Z"
+          fill="#C9A227"
+          opacity="0.85"
+        />
+        <path
+          d="M28,766 L140,766 L140,756 L38,756 L38,654 L28,654Z"
+          fill="#C9A227"
+          opacity="0.85"
+        />
+        <path
+          d="M1094,766 L982,766 L982,756 L1084,756 L1084,654 L1094,654Z"
+          fill="#C9A227"
+          opacity="0.85"
+        />
+
+        {/* Graduation cap Logo */}
+        <g transform="translate(435, 95)" fill="#C9A227">
+          <path d="M 12 2 L 2 7 L 12 12 L 22 7 Z" />
+          <path
+            d="M 2 17 L 12 22 L 22 17"
+            fill="none"
+            stroke="#C9A227"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+          <path
+            d="M 7 14.5 L 7 18.5 C 7 19.5, 17 19.5, 17 18.5 L 17 14.5"
+            fill="none"
+            stroke="#C9A227"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+          <path d="M 22 7 L 22 15 L 21 15 L 21 8" />
+        </g>
+        <text
+          x="585"
+          y="120"
+          textAnchor="middle"
+          fill="#C9A227"
+          fontSize="22"
+          fontFamily="serif"
+          letterSpacing="8"
+          fontWeight="700"
+        >
+          LEARNIFY AI
+        </text>
+
+        <text
+          x="561"
+          y="210"
+          textAnchor="middle"
+          fill="white"
+          fontSize="80"
+          fontFamily="Playfair Display,Georgia,serif"
+          fontWeight="700"
+          letterSpacing="16"
+        >
+          CERTIFICATE
+        </text>
+        <text
+          x="561"
+          y="260"
+          textAnchor="middle"
+          fill="#C9A227"
+          fontSize="26"
+          letterSpacing="18"
+          fontFamily="sans-serif"
+        >
+          OF COMPLETION
+        </text>
+        <text
+          x="561"
+          y="340"
+          textAnchor="middle"
+          fill="rgba(255,255,255,0.65)"
+          fontSize="22"
+          fontFamily="sans-serif"
+        >
+          This is to certify that
+        </text>
+
+        {/* Recipient Text */}
+        <g
+          transform={`rotate(${recipient.rotation || 0}, ${recipient.x}, ${recipient.y})`}
+          style={{ opacity: (recipient.opacity ?? 100) / 100 }}
+        >
+          {!isModal && (
+            <rect
+              x={recipient.x - recipient.width / 2}
+              y={recipient.y - 70}
+              width={recipient.width}
+              height={recipient.height}
+              fill={selectedEl === "recipient" ? "rgba(107,91,251,0.1)" : "transparent"}
+              stroke={selectedEl === "recipient" ? "#6B5BFB" : "transparent"}
+              strokeWidth="2"
+              strokeDasharray="8 4"
+              rx="4"
+              onClick={() => setSelectedEl("recipient")}
+              onMouseDown={(e) => handleDragStart(e, "recipient")}
+              style={{ cursor: "move" }}
+            />
+          )}
+          <text
+            x={recipient.x}
+            y={recipient.y}
+            textAnchor={
+              recipient.align === "left" ? "start" : recipient.align === "right" ? "end" : "middle"
+            }
+            fill={recipient.fontColor}
+            fontSize={recipient.fontSize}
+            fontFamily={`${recipient.fontFamily},Georgia,serif`}
+            fontStyle={recipient.italic ? "italic" : "normal"}
+            fontWeight={recipient.bold ? "bold" : "normal"}
+            textDecoration={recipient.underline ? "underline" : "none"}
+            onClick={() => setSelectedEl("recipient")}
+            onMouseDown={(e) => (!isModal ? handleDragStart(e, "recipient") : undefined)}
+            style={{ cursor: !isModal ? "move" : "default", userSelect: "none" }}
+          >
+            {recipient.text}
+          </text>
+        </g>
+
+        <line
+          x1="200"
+          y1="476"
+          x2="922"
+          y2="476"
+          stroke="rgba(201,162,39,0.45)"
+          strokeWidth="1.5"
+        />
+        <text
+          x="561"
+          y="516"
+          textAnchor="middle"
+          fill="rgba(255,255,255,0.7)"
+          fontSize="20"
+          fontFamily="sans-serif"
+        >
+          has successfully completed the course
+        </text>
+
+        {/* Course Text */}
+        <g
+          transform={`rotate(${course.rotation || 0}, ${course.x}, ${course.y})`}
+          style={{ opacity: (course.opacity ?? 100) / 100 }}
+        >
+          {!isModal && (
+            <rect
+              x={course.x - course.width / 2}
+              y={course.y - 45}
+              width={course.width}
+              height={course.height}
+              fill={selectedEl === "course" ? "rgba(107,91,251,0.1)" : "transparent"}
+              stroke={selectedEl === "course" ? "#6B5BFB" : "transparent"}
+              strokeWidth="1.5"
+              strokeDasharray="6 3"
+              rx="4"
+              onClick={() => setSelectedEl("course")}
+              onMouseDown={(e) => handleDragStart(e, "course")}
+              style={{ cursor: "move" }}
+            />
+          )}
+          <text
+            x={course.x}
+            y={course.y}
+            textAnchor={
+              course.align === "left" ? "start" : course.align === "right" ? "end" : "middle"
+            }
+            fill={course.fontColor}
+            fontSize={course.fontSize}
+            fontFamily={`${course.fontFamily},Georgia,serif`}
+            fontStyle={course.italic ? "italic" : "normal"}
+            fontWeight={course.bold ? "bold" : "normal"}
+            textDecoration={course.underline ? "underline" : "none"}
+            onClick={() => setSelectedEl("course")}
+            onMouseDown={(e) => (!isModal ? handleDragStart(e, "course") : undefined)}
+            style={{ cursor: !isModal ? "move" : "default", userSelect: "none" }}
+          >
+            {course.text}
+          </text>
+        </g>
+
+        <line x1="150" y1="640" x2="430" y2="640" stroke="rgba(201,162,39,0.45)" strokeWidth="1" />
+        <line x1="692" y1="640" x2="972" y2="640" stroke="rgba(201,162,39,0.45)" strokeWidth="1" />
+        <text
+          x="290"
+          y="660"
+          textAnchor="middle"
+          fill="rgba(255,255,255,0.55)"
+          fontSize="18"
+          fontFamily="sans-serif"
+        >
+          May 25, 2026
+        </text>
+        <text
+          x="290"
+          y="682"
+          textAnchor="middle"
+          fill="rgba(255,255,255,0.35)"
+          fontSize="14"
+          fontFamily="sans-serif"
+        >
+          Date of Completion
+        </text>
+        <text
+          x="832"
+          y="660"
+          textAnchor="middle"
+          fill="rgba(255,255,255,0.55)"
+          fontSize="18"
+          fontFamily="sans-serif"
+        >
+          Alex Rivera
+        </text>
+        <text
+          x="832"
+          y="682"
+          textAnchor="middle"
+          fill="rgba(255,255,255,0.35)"
+          fontSize="14"
+          fontFamily="sans-serif"
+        >
+          Founder & CEO, Learnify AI
+        </text>
+
+        <circle
+          cx="561"
+          cy="660"
+          r="56"
+          fill="rgba(201,162,39,0.12)"
+          stroke="#C9A227"
+          strokeWidth="3"
+        />
+        <circle
+          cx="561"
+          cy="660"
+          r="42"
+          fill="none"
+          stroke="rgba(201,162,39,0.4)"
+          strokeWidth="1.5"
+        />
+        <text x="561" y="672" textAnchor="middle" fill="#C9A227" fontSize="36" fontFamily="serif">
+          ✦
+        </text>
+
+        {/* Beautiful high-tech vector QR Code */}
+        <g transform="translate(996, 700)">
+          <rect width="80" height="80" fill="white" rx="6" stroke="#C9A227" strokeWidth="1" />
+          <rect x="6" y="6" width="18" height="18" fill="#0F172A" rx="2" />
+          <rect x="8" y="8" width="14" height="14" fill="white" rx="1" />
+          <rect x="10" y="10" width="10" height="10" fill="#0F172A" rx="0.5" />
+
+          <rect x="56" y="6" width="18" height="18" fill="#0F172A" rx="2" />
+          <rect x="58" y="8" width="14" height="14" fill="white" rx="1" />
+          <rect x="60" y="10" width="10" height="10" fill="#0F172A" rx="0.5" />
+
+          <rect x="6" y="56" width="18" height="18" fill="#0F172A" rx="2" />
+          <rect x="8" y="58" width="14" height="14" fill="white" rx="1" />
+          <rect x="10" y="60" width="10" height="10" fill="#0F172A" rx="0.5" />
+
+          <rect x="30" y="10" width="6" height="6" fill="#0F172A" rx="1" />
+          <rect x="40" y="16" width="10" height="6" fill="#0F172A" rx="1" />
+          <rect x="30" y="30" width="12" height="6" fill="#0F172A" rx="1" />
+          <rect x="16" y="38" width="6" height="12" fill="#0F172A" rx="1" />
+          <rect x="32" y="44" width="8" height="8" fill="#0F172A" rx="1" />
+          <rect x="48" y="36" width="12" height="12" fill="#0F172A" rx="1" />
+          <rect x="56" y="56" width="8" height="8" fill="#0F172A" rx="1" />
+        </g>
+
+        {/* Dynamic elements rendering */}
+        {canvasElements.map((el) => {
+          if (el.id === "recipient" || el.id === "course") return null;
+          const isSelected = selectedEl === el.id;
+          return (
+            <g
+              key={el.id}
+              transform={`rotate(${el.rotation || 0}, ${el.x}, ${el.y})`}
+              style={{ opacity: (el.opacity ?? 100) / 100 }}
+            >
+              {!isModal && (
+                <rect
+                  x={el.x - el.width / 2}
+                  y={el.y - el.height / 2}
+                  width={el.width}
+                  height={el.height}
+                  fill={isSelected ? "rgba(107,91,251,0.1)" : "transparent"}
+                  stroke={isSelected ? "#6B5BFB" : "transparent"}
+                  strokeWidth="2"
+                  strokeDasharray="8 4"
+                  rx="4"
+                  onClick={() => setSelectedEl(el.id)}
+                  onMouseDown={(e) => handleDragStart(e, el.id)}
+                  style={{ cursor: "move" }}
+                />
+              )}
+
+              {el.type === "qrcode" ? (
+                <g transform={`translate(${el.x - el.width / 2}, ${el.y - el.height / 2})`}>
+                  <rect width={el.width} height={el.height} fill="white" rx={4} />
+                  <rect x={6} y={6} width={18} height={18} fill="#0F172A" />
+                  <rect x={8} y={8} width={14} height={14} fill="white" />
+                  <rect x={10} y={10} width={10} height={10} fill="#0F172A" />
+
+                  <rect x={el.width - 24} y={6} width={18} height={18} fill="#0F172A" />
+                  <rect x={el.width - 22} y={8} width={14} height={14} fill="white" />
+                  <rect x={el.width - 20} y={10} width={10} height={10} fill="#0F172A" />
+
+                  <rect x={6} y={el.height - 24} width={18} height={18} fill="#0F172A" />
+                  <rect x={8} y={el.height - 22} width={14} height={14} fill="white" />
+                  <rect x={10} y={el.height - 20} width={10} height={10} fill="#0F172A" />
+
+                  <rect x={30} y={10} width={6} height={6} fill="#0F172A" />
+                  <rect x={40} y={15} width={12} height={4} fill="#0F172A" />
+                  <rect x={35} y={25} width={8} height={8} fill="#0F172A" />
+                  <rect x={15} y={35} width={12} height={6} fill="#0F172A" />
+                  <rect x={45} y={35} width={6} height={12} fill="#0F172A" />
+                </g>
+              ) : el.type === "signature" ? (
+                <g transform={`translate(${el.x - el.width / 2}, ${el.y - el.height / 2})`}>
+                  <text
+                    x={el.width / 2}
+                    y={el.height - 15}
+                    textAnchor="middle"
+                    fill="#C9A227"
+                    fontSize="28"
+                    fontFamily="Great Vibes,cursive"
+                  >
+                    {el.text}
+                  </text>
+                  <line
+                    x1={10}
+                    y1={el.height - 10}
+                    x2={el.width - 10}
+                    y2={el.height - 10}
+                    stroke="rgba(255,255,255,0.3)"
+                    strokeWidth="1"
+                  />
+                </g>
+              ) : el.type === "shape" ? (
+                <rect
+                  x={el.x - el.width / 2}
+                  y={el.y - el.height / 2}
+                  width={el.width}
+                  height={el.height}
+                  fill="none"
+                  stroke="#C9A227"
+                  strokeWidth="2"
+                  rx={4}
+                />
+              ) : (
+                <text
+                  x={el.x}
+                  y={el.y + el.height / 4}
+                  textAnchor={
+                    el.align === "left" ? "start" : el.align === "right" ? "end" : "middle"
+                  }
+                  fill={el.fontColor}
+                  fontSize={el.fontSize}
+                  fontFamily={`${el.fontFamily},sans-serif`}
+                  fontStyle={el.italic ? "italic" : "normal"}
+                  fontWeight={el.bold ? "bold" : "normal"}
+                  textDecoration={el.underline ? "underline" : "none"}
+                  onClick={() => setSelectedEl(el.id)}
+                  onMouseDown={(e) => (!isModal ? handleDragStart(e, el.id) : undefined)}
+                  style={{ cursor: !isModal ? "move" : "default", userSelect: "none" }}
+                >
+                  {el.text}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    );
+  };
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "calc(100vh - 200px)",
+        background: "white",
+        border: `1px solid ${BD}`,
+        borderRadius: 12,
+        overflow: "hidden",
+      }}
+    >
+      {/* Toolbar */}
       <div
         style={{
+          borderBottom: `1px solid ${BD}`,
+          padding: "10px 16px",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            onClick={() =>
+              updateActiveEl({ rotation: Math.max(0, (activeEl?.rotation || 0) - 15) })
+            }
+            style={{
+              padding: 5,
+              border: `1px solid ${BD}`,
+              borderRadius: 6,
+              background: "white",
+              cursor: "pointer",
+            }}
+            title="Rotate Left"
+          >
+            <RotateCcw size={14} color={TX2} />
+          </button>
+          <button
+            onClick={() =>
+              updateActiveEl({ rotation: Math.min(360, (activeEl?.rotation || 0) + 15) })
+            }
+            style={{
+              padding: 5,
+              border: `1px solid ${BD}`,
+              borderRadius: 6,
+              background: "white",
+              cursor: "pointer",
+            }}
+            title="Rotate Right"
+          >
+            <RotateCw size={14} color={TX2} />
+          </button>
+        </div>
+        <div style={{ width: 1, height: 20, background: BD }} />
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <button
+            onClick={() => setZoom((z) => Math.max(25, z - 10))}
+            style={{
+              padding: "3px 8px",
+              border: `1px solid ${BD}`,
+              borderRadius: 6,
+              background: "white",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            −
+          </button>
+          <span
+            style={{ fontSize: 13, fontWeight: 600, color: TX, minWidth: 40, textAlign: "center" }}
+          >
+            {zoom}%
+          </span>
+          <button
+            onClick={() => setZoom((z) => Math.min(150, z + 10))}
+            style={{
+              padding: "3px 8px",
+              border: `1px solid ${BD}`,
+              borderRadius: 6,
+              background: "white",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            +
+          </button>
+        </div>
+        <div style={{ width: 1, height: 20, background: BD }} />
+        {[
+          { id: "desktop", icon: <Monitor size={14} /> },
+          { id: "tablet", icon: <Tablet size={14} /> },
+          { id: "mobile", icon: <Smartphone size={14} /> },
+        ].map((d) => (
+          <button
+            key={d.id}
+            onClick={() => setDevice(d.id)}
+            style={{
+              padding: "5px 10px",
+              border: `1px solid ${device === d.id ? P : BD}`,
+              borderRadius: 6,
+              background: device === d.id ? PL : "white",
+              cursor: "pointer",
+              color: device === d.id ? P : TX2,
+            }}
+          >
+            {d.icon}
+          </button>
+        ))}
+        <div style={{ width: 1, height: 20, background: BD }} />
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            cursor: "pointer",
+            fontSize: 13,
+            color: TX2,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={showGrid}
+            onChange={(e) => setShowGrid(e.target.checked)}
+            style={{ accentColor: P }}
+          />{" "}
+          Grid
+        </label>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <Btn variant="outline" onClick={() => setIsPreviewOpen(true)}>
+            <Eye size={14} />
+            Preview
+          </Btn>
+          <Btn variant="outline" onClick={handleSave}>
+            <Save size={14} />
+            Save
+          </Btn>
+          <div style={{ position: "relative", display: "inline-block" }} className="group">
+            <Btn variant="primary">
+              <Download size={14} />
+              Download ▾
+            </Btn>
+            <div className="absolute right-0 top-full mt-1 hidden group-hover:flex flex-col bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-50 min-w-[120px]">
+              <button
+                onClick={() => handleDownload("png")}
+                className="px-3 py-1.5 text-xs text-left text-slate-700 hover:bg-slate-50 w-full font-medium"
+              >
+                Export PNG
+              </button>
+              <button
+                onClick={() => handleDownload("pdf")}
+                className="px-3 py-1.5 text-xs text-left text-slate-700 hover:bg-slate-50 w-full font-medium"
+              >
+                Export PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+        {/* Left Sidebar */}
+        <div
+          style={{
+            width: 180,
+            borderRight: `1px solid ${BD}`,
+            padding: 12,
+            overflowY: "auto",
+            flexShrink: 0,
+            background: "#FAFAFA",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: TX2,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              marginBottom: 10,
+            }}
+          >
+            Add Elements
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            {elementsList.map((el) => (
+              <button
+                key={el.id}
+                onClick={() => handleAddElement(el.id)}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "10px 6px",
+                  border: `1px solid ${BD}`,
+                  borderRadius: 8,
+                  background: "white",
+                  cursor: "pointer",
+                  fontSize: 11,
+                  fontWeight: 500,
+                  color: TX,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = PL;
+                  e.currentTarget.style.borderColor = P;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "white";
+                  e.currentTarget.style.borderColor = BD;
+                }}
+              >
+                {el.icon}
+                {el.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Canvas */}
+        <div
+          style={{
+            flex: 1,
+            background: "#E5E7EB",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "auto",
+            position: "relative",
+          }}
+        >
+          <div
+            style={{
+              width: `min(${zoom}vw, ${1122 * (zoom / 100)}px)`,
+              aspectRatio: "1122/794",
+              maxWidth: "95%",
+              background: "#0a0a2e",
+              border: "1px solid #D1D5DB",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+              position: "relative",
+              overflow: "hidden",
+              flexShrink: 0,
+            }}
+          >
+            {renderCertificateSvg(false)}
+          </div>
+
+          {/* Dynamic Fields Bar */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: "white",
+              borderTop: `1px solid ${BD}`,
+              padding: "8px 16px",
+              display: "flex",
+              gap: 6,
+              alignItems: "center",
+              overflowX: "auto",
+            }}
+          >
+            <span style={{ fontSize: 11, fontWeight: 600, color: TX2, flexShrink: 0 }}>
+              Dynamic Fields:
+            </span>
+            {dynamicFields.map((f) => (
+              <button
+                key={f}
+                onClick={() => {
+                  if (selectedEl) {
+                    updateActiveEl({ text: f });
+                    toast.success(`Set active element text to: ${f}`);
+                  } else {
+                    toast.info("Select a text element first to inject field");
+                  }
+                }}
+                style={{
+                  padding: "3px 10px",
+                  border: `1px solid ${BD}`,
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  background: "white",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                  color: TX,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = PL;
+                  e.currentTarget.style.borderColor = P;
+                  e.currentTarget.style.color = P;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "white";
+                  e.currentTarget.style.borderColor = BD;
+                  e.currentTarget.style.color = TX;
+                }}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Right Properties Panel */}
+        <div
+          style={{
+            width: 260,
+            borderLeft: `1px solid ${BD}`,
+            padding: 16,
+            overflowY: "auto",
+            flexShrink: 0,
+            background: "#FAFAFA",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              gap: 0,
+              marginBottom: 16,
+              border: `1px solid ${BD}`,
+              borderRadius: 8,
+              overflow: "hidden",
+            }}
+          >
+            {["Design", "Arrange"].map((t) => (
+              <button
+                key={t}
+                onClick={() => setDesignTab(t)}
+                style={{
+                  flex: 1,
+                  padding: "7px 4px",
+                  border: "none",
+                  background: designTab === t ? P : "white",
+                  color: designTab === t ? "white" : TX2,
+                  fontSize: 12,
+                  fontWeight: designTab === t ? 600 : 400,
+                  cursor: "pointer",
+                }}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {activeEl ? (
+            <>
+              {designTab === "Design" && (
+                <>
+                  <div style={{ marginBottom: 16 }}>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: TX2,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                        marginBottom: 10,
+                      }}
+                    >
+                      Text Properties
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <label
+                        style={{ fontSize: 12, color: TX2, display: "block", marginBottom: 4 }}
+                      >
+                        Text Content
+                      </label>
+                      <input
+                        type="text"
+                        value={activeEl.text}
+                        onChange={(e) => updateActiveEl({ text: e.target.value })}
+                        style={{
+                          width: "100%",
+                          border: `1px solid ${BD}`,
+                          borderRadius: 6,
+                          padding: "6px 10px",
+                          fontSize: 13,
+                          color: TX,
+                        }}
+                      />
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <label
+                        style={{ fontSize: 12, color: TX2, display: "block", marginBottom: 4 }}
+                      >
+                        Font Family
+                      </label>
+                      <select
+                        value={activeEl.fontFamily}
+                        onChange={(e) => updateActiveEl({ fontFamily: e.target.value })}
+                        style={{
+                          width: "100%",
+                          border: `1px solid ${BD}`,
+                          borderRadius: 6,
+                          padding: "6px 10px",
+                          fontSize: 13,
+                          color: TX,
+                        }}
+                      >
+                        <option>Great Vibes</option>
+                        <option>Playfair Display</option>
+                        <option>Inter</option>
+                        <option>sans-serif</option>
+                      </select>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <label
+                          style={{ fontSize: 12, color: TX2, display: "block", marginBottom: 4 }}
+                        >
+                          Size
+                        </label>
+                        <input
+                          type="number"
+                          value={activeEl.fontSize}
+                          onChange={(e) => updateActiveEl({ fontSize: +e.target.value })}
+                          style={{
+                            width: "100%",
+                            border: `1px solid ${BD}`,
+                            borderRadius: 6,
+                            padding: "6px 10px",
+                            fontSize: 13,
+                            color: TX,
+                          }}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label
+                          style={{ fontSize: 12, color: TX2, display: "block", marginBottom: 4 }}
+                        >
+                          Color
+                        </label>
+                        <div
+                          style={{
+                            border: `1px solid ${BD}`,
+                            borderRadius: 6,
+                            padding: "4px 8px",
+                            display: "flex",
+                            gap: 6,
+                            alignItems: "center",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 18,
+                              height: 18,
+                              borderRadius: 3,
+                              background: activeEl.fontColor,
+                              flexShrink: 0,
+                            }}
+                          />
+                          <input
+                            value={activeEl.fontColor}
+                            onChange={(e) => updateActiveEl({ fontColor: e.target.value })}
+                            style={{
+                              border: "none",
+                              fontSize: 12,
+                              color: TX,
+                              width: "100%",
+                              outline: "none",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+                      {[
+                        {
+                          label: "B",
+                          active: activeEl.bold,
+                          toggle: () => updateActiveEl({ bold: !activeEl.bold }),
+                        },
+                        {
+                          label: "I",
+                          active: activeEl.italic,
+                          toggle: () => updateActiveEl({ italic: !activeEl.italic }),
+                        },
+                        {
+                          label: "U",
+                          active: activeEl.underline,
+                          toggle: () => updateActiveEl({ underline: !activeEl.underline }),
+                        },
+                      ].map((b) => (
+                        <button
+                          key={b.label}
+                          onClick={b.toggle}
+                          style={{
+                            flex: 1,
+                            padding: "6px",
+                            border: `1px solid ${b.active ? P : BD}`,
+                            borderRadius: 6,
+                            background: b.active ? PL : "white",
+                            color: b.active ? P : TX,
+                            fontSize: 13,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {b.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {[
+                        { icon: <AlignLeft size={14} />, val: "left" },
+                        { icon: <AlignCenter size={14} />, val: "center" },
+                        { icon: <AlignRight size={14} />, val: "right" },
+                      ].map((a) => (
+                        <button
+                          key={a.val}
+                          onClick={() => updateActiveEl({ align: a.val })}
+                          style={{
+                            flex: 1,
+                            padding: "6px",
+                            border: `1px solid ${activeEl.align === a.val ? P : BD}`,
+                            borderRadius: 6,
+                            background: activeEl.align === a.val ? PL : "white",
+                            color: activeEl.align === a.val ? P : TX2,
+                            cursor: "pointer",
+                            display: "flex",
+                            justifyContent: "center",
+                          }}
+                        >
+                          {a.icon}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 16 }}>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: TX2,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                        marginBottom: 10,
+                      }}
+                    >
+                      Element Properties
+                    </div>
+                    <div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginBottom: 4,
+                        }}
+                      >
+                        <label style={{ fontSize: 12, color: TX2 }}>Opacity</label>
+                        <span style={{ fontSize: 12, color: TX }}>{activeEl.opacity}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={activeEl.opacity}
+                        onChange={(e) => updateActiveEl({ opacity: +e.target.value })}
+                        style={{ width: "100%", accentColor: P }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 16 }}>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: TX2,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                        marginBottom: 10,
+                      }}
+                    >
+                      Preset Colors
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {["#1a1a2e", "#C9A227", "white", "#6B5BFB", "#10B981"].map((c, i) => (
+                        <div
+                          key={i}
+                          onClick={() => updateActiveEl({ fontColor: c })}
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: 4,
+                            background: c,
+                            border: `1px solid ${BD}`,
+                            cursor: "pointer",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {designTab === "Arrange" && (
+                <div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: TX2,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      marginBottom: 10,
+                    }}
+                  >
+                    Position & Size
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 8,
+                      marginBottom: 12,
+                    }}
+                  >
+                    {[
+                      { label: "X (px)", val: activeEl.x, key: "x" },
+                      { label: "Y (px)", val: activeEl.y, key: "y" },
+                      { label: "W (px)", val: activeEl.width, key: "width" },
+                      { label: "H (px)", val: activeEl.height, key: "height" },
+                    ].map((f) => (
+                      <div key={f.key}>
+                        <label
+                          style={{ fontSize: 11, color: TX2, display: "block", marginBottom: 3 }}
+                        >
+                          {f.label}
+                        </label>
+                        <input
+                          type="number"
+                          value={f.val}
+                          onChange={(e) => updateActiveEl({ [f.key]: +e.target.value })}
+                          style={{
+                            width: "100%",
+                            border: `1px solid ${BD}`,
+                            borderRadius: 6,
+                            padding: "5px 8px",
+                            fontSize: 13,
+                            color: TX,
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <div
+                      style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}
+                    >
+                      <label style={{ fontSize: 11, color: TX2 }}>Rotate</label>
+                      <span style={{ fontSize: 11, color: TX }}>{activeEl.rotation}°</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={360}
+                      value={activeEl.rotation || 0}
+                      onChange={(e) => updateActiveEl({ rotation: +e.target.value })}
+                      style={{ width: "100%", accentColor: P }}
+                    />
+                  </div>
+                  <div style={{ marginTop: 12, display: "flex", gap: 6 }}>
+                    <Btn
+                      variant="outline"
+                      onClick={handleDuplicateActive}
+                      style={{ flex: 1, justifyContent: "center", fontSize: 12 }}
+                    >
+                      <Copy size={13} />
+                      Duplicate
+                    </Btn>
+                    <Btn
+                      variant="danger"
+                      onClick={handleDeleteActive}
+                      style={{ flex: 1, justifyContent: "center", fontSize: 12 }}
+                    >
+                      <Trash2 size={13} />
+                      Delete
+                    </Btn>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={{ fontSize: 13, color: TX2, textAlign: "center", padding: "40px 0" }}>
+              Select an element on the canvas to configure properties.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Status Bar */}
+      <div
+        style={{
+          borderTop: `1px solid ${BD}`,
+          padding: "8px 16px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: 12,
-          flexWrap: "wrap",
+          fontSize: 12,
+          color: TX2,
+          flexShrink: 0,
         }}
       >
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: TX }}>Certificate Designer</div>
-          <div style={{ fontSize: 12, color: TX2, marginTop: 2 }}>
-            Open a template to edit every element — text, logo, QR, signature, shapes and borders —
-            then save. Templates you pick per course are used automatically when students pass the
-            final test.
-          </div>
-        </div>
+        <span>Template: Dynamic Canvas Engine</span>
+        <span style={{ color: SG, fontWeight: 500 }}>✓ Interactive Mode Active</span>
         <div style={{ display: "flex", gap: 8 }}>
-          <Btn variant="outline" onClick={handleSeed}>
-            <RefreshCw size={13} />
-            Seed Templates
+          <Btn
+            variant="outline"
+            onClick={() =>
+              setCanvasElements([
+                {
+                  id: "recipient",
+                  text: "Alex Rivera",
+                  fontFamily: "Great Vibes",
+                  fontSize: 80,
+                  fontColor: "#ffffff",
+                  bold: false,
+                  italic: true,
+                  underline: false,
+                  align: "center",
+                  opacity: 100,
+                  x: 561,
+                  y: 450,
+                  rotation: 0,
+                  width: 722,
+                  height: 120,
+                  type: "text",
+                },
+                {
+                  id: "course",
+                  text: "Full Stack Web Development",
+                  fontFamily: "Playfair Display",
+                  fontSize: 34,
+                  fontColor: "#C9A227",
+                  bold: true,
+                  italic: false,
+                  underline: false,
+                  align: "center",
+                  opacity: 100,
+                  x: 561,
+                  y: 570,
+                  rotation: 0,
+                  width: 722,
+                  height: 60,
+                  type: "text",
+                },
+              ])
+            }
+          >
+            Reset
           </Btn>
-          <Btn variant="primary" onClick={onNewTemplate}>
-            <Plus size={14} />
-            Start Blank
+          <Btn variant="primary" onClick={handleSave} style={{ fontSize: 12, padding: "4px 10px" }}>
+            <Save size={12} />
+            Save Changes
           </Btn>
         </div>
       </div>
-      <TemplatesScreen
-        setTab={() => {}}
-        dbTemplates={dbTemplates}
-        handleSeed={handleSeed}
-        handleEdit={handleEdit}
-        handleDelete={handleDelete}
-        handleNew={onNewTemplate}
-        isLoading={isLoading}
-      />
+
+      {/* Dialog Preview */}
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="max-w-[90vw] w-[880px] bg-slate-900 border-slate-800 text-white p-6 animate-in fade-in zoom-in-95 duration-200">
+          <DialogHeader className="flex flex-row items-center justify-between border-b border-slate-800 pb-4 mb-4">
+            <DialogTitle className="text-white text-lg font-bold">
+              Certificate Preview Mode
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex justify-center p-4 bg-slate-950 rounded-xl overflow-auto border border-slate-800 shadow-2xl">
+            <div style={{ width: 800, aspectRatio: "1122/794", position: "relative" }}>
+              {renderCertificateSvg(true)}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
 
 // ─── Screen: Bulk Issue ───────────────────────────────────────────────────────
 function BulkIssueScreen({ courses = [], templates = [] }: { courses: any[]; templates: any[] }) {
@@ -2741,7 +4138,7 @@ function BulkIssueScreen({ courses = [], templates = [] }: { courses: any[]; tem
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         {/* Upload */}
         <div
           style={{
@@ -2896,8 +4293,7 @@ function BulkIssueScreen({ courses = [], templates = [] }: { courses: any[]; tem
           <div style={{ fontSize: 12, color: TX2, marginBottom: 12 }}>
             Map your CSV columns to certificate fields
           </div>
-        <div className="overflow-x-auto no-scrollbar">
-          <table style={{ width: "100%", minWidth: 450, borderCollapse: "collapse" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: BG }}>
                 {["Certificate Field", "CSV Column", "Preview"].map((h) => (
@@ -2963,9 +4359,8 @@ function BulkIssueScreen({ courses = [], templates = [] }: { courses: any[]; tem
           </table>
         </div>
       </div>
-    </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         {/* Step 3 */}
         <div
           style={{
@@ -3333,9 +4728,9 @@ function VerificationScreen({ stats }: { stats: any }) {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div style={{ display: "grid", gridTemplateColumns: "5fr 7fr", gap: 16 }}>
         {/* Left: Requests List */}
-        <div className="lg:col-span-5"
+        <div
           style={{
             background: "white",
             border: `1px solid ${BD}`,
@@ -3497,7 +4892,6 @@ function VerificationScreen({ stats }: { stats: any }) {
 
         {/* Right: Details */}
         <div
-          className="lg:col-span-7"
           style={{
             background: "white",
             border: `1px solid ${BD}`,
@@ -3759,15 +5153,15 @@ function AnalyticsCertificates({ BD, TX, TX2, TX3, P, SGL, SG, ER }: any) {
         </div>
       </div>
       <div
-        className="overflow-x-auto no-scrollbar"
         style={{
           background: "white",
           border: `1px solid ${BD}`,
           borderRadius: 12,
+          overflow: "hidden",
           boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
         }}
       >
-        <table style={{ width: "100%", minWidth: 600, borderCollapse: "collapse", textAlign: "left" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
           <thead>
             <tr style={{ background: "#F8FAFC", borderBottom: `1px solid ${BD}` }}>
               <th
@@ -3980,7 +5374,7 @@ function AnalyticsTemplates({ BD, TX, TX2, SG, SGL, P }: any) {
           + Create New Template
         </button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
         {[
           {
             name: "Executive Blue Gold",
@@ -4164,15 +5558,15 @@ function AnalyticsRecipients({ BD, TX, TX2, TX3, P }: any) {
         />
       </div>
       <div
-        className="overflow-x-auto no-scrollbar"
         style={{
           background: "white",
           border: `1px solid ${BD}`,
           borderRadius: 12,
+          overflow: "hidden",
           boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
         }}
       >
-        <table style={{ width: "100%", minWidth: 650, borderCollapse: "collapse", textAlign: "left" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
           <thead>
             <tr style={{ background: "#F8FAFC", borderBottom: `1px solid ${BD}` }}>
               <th
@@ -4317,15 +5711,15 @@ function AnalyticsVerification({ BD, TX, TX2, TX3, SGL, SG, ER }: any) {
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <h3 style={{ fontSize: 15, fontWeight: 700, color: TX }}>Live Verification Logs</h3>
       <div
-        className="overflow-x-auto no-scrollbar"
         style={{
           background: "white",
           border: `1px solid ${BD}`,
           borderRadius: 12,
+          overflow: "hidden",
           boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
         }}
       >
-        <table style={{ width: "100%", minWidth: 650, borderCollapse: "collapse", textAlign: "left" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
           <thead>
             <tr style={{ background: "#F8FAFC", borderBottom: `1px solid ${BD}` }}>
               <th
@@ -4497,7 +5891,7 @@ function AnalyticsEngagement({ BD, TX, TX2, TX3, P, PL, IN, INL, SG, SGL, WO, ba
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <h3 style={{ fontSize: 15, fontWeight: 700, color: TX }}>Social Sharing & Engagement</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
         {[
           {
             label: "LinkedIn Shares",
@@ -4569,7 +5963,7 @@ function AnalyticsEngagement({ BD, TX, TX2, TX3, P, PL, IN, INL, SG, SGL, WO, ba
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <SectionCard title="Referral Enrolments generated by Certificate Shares">
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={barData}>
@@ -4647,7 +6041,7 @@ function AnalyticsExports({ BD, TX, TX2, P, toast }: any) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <h3 style={{ fontSize: 15, fontWeight: 700, color: TX }}>Export Reports</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
         {[
           {
             title: "CSV Data Export",
@@ -4907,7 +6301,7 @@ function AnalyticsScreen({ stats }: { stats: any }) {
 
       {aTab === "Overview" && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-4">
+          <div style={{ display: "grid", gridTemplateColumns: "5fr 4fr 3fr", gap: 16 }}>
             <SectionCard
               title="Certificates Issued Over Time"
               action={
@@ -5094,7 +6488,7 @@ function AnalyticsScreen({ stats }: { stats: any }) {
             </SectionCard>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
             <SectionCard
               title="Downloads & Shares"
               action={
@@ -5641,7 +7035,7 @@ function AnalyticsScreen({ stats }: { stats: any }) {
             </SectionCard>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
             {[
               {
                 icon: <ShieldCheck size={24} color={P} />,
@@ -5932,16 +7326,17 @@ function CategoriesScreen({ categories = [] }: { categories: any[] }) {
       </div>
 
       {/* Main Categories Table and Details Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-8 overflow-x-auto no-scrollbar"
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16 }}>
+        <div
           style={{
             background: "white",
             border: `1px solid ${BD}`,
             borderRadius: 12,
+            overflow: "hidden",
             boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
           }}
         >
-          <table style={{ width: "100%", minWidth: 650, borderCollapse: "collapse" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: BG, borderBottom: `1px solid ${BD}` }}>
                 {[
@@ -6088,7 +7483,6 @@ function CategoriesScreen({ categories = [] }: { categories: any[] }) {
 
         {/* Selected Category Details Sidebar */}
         <div
-          className="lg:col-span-4"
           style={{
             background: "white",
             border: `1px solid ${BD}`,
@@ -6351,127 +7745,8 @@ function SettingsScreen({
     initialSettings?.cert_email_notifications === "true",
   );
   const [qrCode, setQrCode] = useState(initialSettings?.cert_qr_code === "true");
-  const [orgName, setOrgName] = useState(initialSettings?.cert_org_name || "Learnify AI");
-  const [brandColor, setBrandColor] = useState(initialSettings?.cert_brand_color || "#6B5BFB");
-  const [logoUrl, setLogoUrl] = useState(initialSettings?.cert_logo_url || "/logo.png");
-  const [emailFrom, setEmailFrom] = useState(
-    initialSettings?.cert_email_from || "support.learnifyai@gmail.com",
-  );
-  const [emailReplyTo, setEmailReplyTo] = useState(
-    initialSettings?.cert_email_reply_to || "support.learnifyai@gmail.com",
-  );
-  const [verifyDomain, setVerifyDomain] = useState(
-    initialSettings?.cert_verification_domain || "learnifyai.in",
-  );
-  const [expiryReminder, setExpiryReminder] = useState(
-    initialSettings?.cert_expiry_reminder === "true",
-  );
-  const [weeklyDigest, setWeeklyDigest] = useState(
-    initialSettings?.cert_weekly_digest === "true",
-  );
   const [settingsNav, setSettingsNav] = useState("General");
   const [saving, setSaving] = useState(false);
-
-  // Team Access — live member management
-  const teamFn = useServerFn(adminTeamMembers);
-  const setTeamRoleFn = useServerFn(adminSetTeamRole);
-  const searchUsersFn = useServerFn(adminSearchUsers);
-  const [teamMembers, setTeamMembers] = useState<any[]>([]);
-  const [teamLoading, setTeamLoading] = useState(true);
-  const [teamSearch, setTeamSearch] = useState("");
-  const [teamResults, setTeamResults] = useState<any[]>([]);
-  const [teamBusy, setTeamBusy] = useState<string | null>(null);
-
-  const TEAM_ROLE_META: Record<string, { label: string; color: string }> = {
-    super_admin: { label: "Owner", color: "#6B5BFB" },
-    admin: { label: "Admin", color: "#0EA5E9" },
-    issuer: { label: "Issuer", color: "#10B981" },
-  };
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await teamFn();
-        setTeamMembers((res as any)?.members ?? []);
-      } catch {
-        /* ignore */
-      } finally {
-        setTeamLoading(false);
-      }
-    })();
-  }, [teamFn]);
-
-  useEffect(() => {
-    if (teamSearch.trim().length < 2) {
-      setTeamResults([]);
-      return;
-    }
-    const t = setTimeout(async () => {
-      try {
-        const res = await searchUsersFn({ data: { query: teamSearch.trim() } });
-        const rows = (res as any)?.rows ?? [];
-        const ids = new Set(teamMembers.map((m: any) => m.user_id));
-        setTeamResults(rows.filter((r: any) => !ids.has(r.id)));
-      } catch {
-        setTeamResults([]);
-      }
-    }, 350);
-    return () => clearTimeout(t);
-  }, [teamSearch, teamMembers, searchUsersFn]);
-
-  const teamChangeRole = async (userId: string, oldRole: string, newRole: string) => {
-    if (oldRole === newRole || !newRole) return;
-    setTeamBusy(userId);
-    try {
-      await setTeamRoleFn({ data: { userId, role: oldRole, action: "remove" } });
-      await setTeamRoleFn({ data: { userId, role: newRole, action: "add" } });
-      setTeamMembers((prev) =>
-        prev.map((m) => (m.user_id === userId ? { ...m, role: newRole } : m)),
-      );
-      toast.success(`Role updated to ${TEAM_ROLE_META[newRole]?.label ?? newRole}`);
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed to update role");
-    } finally {
-      setTeamBusy(null);
-    }
-  };
-
-  const teamRemoveMember = async (m: any) => {
-    setTeamBusy(m.user_id);
-    try {
-      await setTeamRoleFn({ data: { userId: m.user_id, role: m.role, action: "remove" } });
-      setTeamMembers((prev) => prev.filter((x) => x.user_id !== m.user_id));
-      toast.success(`${m.full_name || "Member"} removed from team`);
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed to remove member");
-    } finally {
-      setTeamBusy(null);
-    }
-  };
-
-  const teamAddMember = async (u: any) => {
-    setTeamBusy(u.id);
-    try {
-      await setTeamRoleFn({ data: { userId: u.id, role: "issuer", action: "add" } });
-      setTeamMembers((prev) => [
-        ...prev,
-        {
-          user_id: u.id,
-          role: "issuer",
-          full_name: u.full_name,
-          email: u.email,
-          avatar_url: u.avatar_url,
-        },
-      ]);
-      setTeamSearch("");
-      setTeamResults([]);
-      toast.success(`${u.full_name || "User"} added as Issuer`);
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed to add member");
-    } finally {
-      setTeamBusy(null);
-    }
-  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -6482,14 +7757,6 @@ function SettingsScreen({
         cert_blockchain: blockchain ? "true" : "false",
         cert_email_notifications: emailNotif ? "true" : "false",
         cert_qr_code: qrCode ? "true" : "false",
-        cert_org_name: orgName,
-        cert_brand_color: brandColor,
-        cert_logo_url: logoUrl,
-        cert_email_from: emailFrom,
-        cert_email_reply_to: emailReplyTo,
-        cert_verification_domain: verifyDomain,
-        cert_expiry_reminder: expiryReminder ? "true" : "false",
-        cert_weekly_digest: weeklyDigest ? "true" : "false",
       });
       toast.success("Settings saved successfully!");
     } catch (e: any) {
@@ -6499,100 +7766,9 @@ function SettingsScreen({
     }
   };
 
-  const saveRow = () => (
-    <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-      <Btn variant="primary" onClick={handleSave}>
-        {saving ? "Saving..." : "Save Changes"}
-      </Btn>
-    </div>
-  );
-
-  const field = (label: string, value: string, set: (v: string) => void, ph?: string) => (
-    <div>
-      <label
-        style={{ fontSize: 12, fontWeight: 600, color: TX, display: "block", marginBottom: 6 }}
-      >
-        {label}
-      </label>
-      <input
-        value={value}
-        onChange={(e) => set(e.target.value)}
-        placeholder={ph}
-        style={{
-          width: "100%",
-          border: `1px solid ${BD}`,
-          borderRadius: 8,
-          padding: "8px 12px",
-          fontSize: 13,
-          color: TX,
-          outline: "none",
-        }}
-      />
-    </div>
-  );
-
-  const toggleRow = (
-    label: string,
-    sub: string,
-    val: boolean,
-    set: (v: boolean) => void,
-  ) => (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "12px 0",
-        borderBottom: `1px solid ${BD}`,
-      }}
-    >
-      <div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: TX }}>{label}</div>
-        <div style={{ fontSize: 12, color: TX2 }}>{sub}</div>
-      </div>
-      <div
-        onClick={() => set(!val)}
-        style={{
-          width: 44,
-          height: 24,
-          borderRadius: 999,
-          background: val ? P : BD,
-          position: "relative",
-          cursor: "pointer",
-          transition: "background 0.2s",
-          flexShrink: 0,
-        }}
-      >
-        <div
-          style={{
-            width: 18,
-            height: 18,
-            borderRadius: "50%",
-            background: "white",
-            position: "absolute",
-            top: 3,
-            left: val ? 23 : 3,
-            transition: "left 0.2s",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-          }}
-        />
-      </div>
-    </div>
-  );
-
-  const NAV = [
-    { icon: <Settings size={15} />, label: "General" },
-    { icon: <Bell size={15} />, label: "Notifications" },
-    { icon: <Shield size={15} />, label: "Security" },
-    { icon: <Palette size={15} />, label: "Branding" },
-    { icon: <Mail size={15} />, label: "Email" },
-    { icon: <Globe size={15} />, label: "Domain" },
-    { icon: <Users size={15} />, label: "Team" },
-  ];
-
   return (
-    <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-      <div className="md:col-span-4 lg:col-span-3"
+    <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 20 }}>
+      <div
         style={{
           background: "white",
           border: `1px solid ${BD}`,
@@ -6602,7 +7778,15 @@ function SettingsScreen({
           boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
         }}
       >
-        {NAV.map((item) => (
+        {[
+          { icon: <Settings size={15} />, label: "General" },
+          { icon: <Bell size={15} />, label: "Notifications" },
+          { icon: <Shield size={15} />, label: "Security" },
+          { icon: <Palette size={15} />, label: "Branding" },
+          { icon: <Mail size={15} />, label: "Email" },
+          { icon: <Globe size={15} />, label: "Domain" },
+          { icon: <Users size={15} />, label: "Team" },
+        ].map((item) => (
           <button
             key={item.label}
             onClick={() => setSettingsNav(item.label)}
@@ -6629,519 +7813,276 @@ function SettingsScreen({
         ))}
       </div>
 
-      <div className="md:col-span-8 lg:col-span-9 flex flex-col gap-4">
-        {settingsNav === "General" && (
-          <SectionCard title="General Settings">
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                {field("Organization Name", orgName, setOrgName, "Learnify AI")}
-                {field("Certificate ID Prefix", prefix, setPrefix, "LAI-2026")}
-                <div>
-                  <label
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: TX,
-                      display: "block",
-                      marginBottom: 6,
-                    }}
-                  >
-                    Expiry Preference
-                  </label>
-                  <select
-                    value={expiry}
-                    onChange={(e) => setExpiry(e.target.value)}
-                    style={{
-                      width: "100%",
-                      border: `1px solid ${BD}`,
-                      borderRadius: 8,
-                      padding: "8px 12px",
-                      fontSize: 13,
-                      color: TX,
-                      outline: "none",
-                    }}
-                  >
-                    <option value="No Expiry">No Expiry</option>
-                    <option value="1 Year">1 Year</option>
-                    <option value="2 Years">2 Years</option>
-                    <option value="5 Years">5 Years</option>
-                  </select>
-                </div>
-                <div>
-                  <label
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: TX,
-                      display: "block",
-                      marginBottom: 6,
-                    }}
-                  >
-                    Timezone
-                  </label>
-                  <input
-                    defaultValue="Asia/Kolkata (IST)"
-                    disabled
-                    style={{
-                      width: "100%",
-                      border: `1px solid ${BD}`,
-                      borderRadius: 8,
-                      padding: "8px 12px",
-                      fontSize: 13,
-                      color: TX,
-                      outline: "none",
-                      background: "#F9FAFB",
-                    }}
-                  />
-                </div>
-              </div>
-              {toggleRow("Show QR Code", "Render QR Code on certificate for direct mobile scans", qrCode, setQrCode)}
-              {toggleRow("Blockchain Verification", "Enable blockchain hash for tamper detection", blockchain, setBlockchain)}
-              {saveRow()}
-            </div>
-          </SectionCard>
-        )}
-
-        {settingsNav === "Notifications" && (
-          <SectionCard title="Notifications & Automation">
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {toggleRow("Email Notifications", "Send email to recipients when certificate is issued", emailNotif, setEmailNotif)}
-              {toggleRow("Expiry Reminder", "Email recipients 30 days before certificate expiry", expiryReminder, setExpiryReminder)}
-              {toggleRow("Weekly Digest", "Send a weekly summary of issued certificates", weeklyDigest, setWeeklyDigest)}
-              {saveRow()}
-            </div>
-          </SectionCard>
-        )}
-
-        {settingsNav === "Security" && (
-          <SectionCard title="Security">
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {[
-                {
-                  icon: <Lock size={16} color={P} />,
-                  title: "Rate Limiting",
-                  desc: "Max 60 verification requests per minute per IP",
-                  badge: "Active",
-                },
-                {
-                  icon: <Shield size={16} color={IN} />,
-                  title: "SSL/TLS",
-                  desc: "All data encrypted in transit",
-                  badge: "Active",
-                },
-                {
-                  icon: <Zap size={16} color={WO} />,
-                  title: "Audit Log",
-                  desc: "All actions logged with user ID and timestamp",
-                  badge: "Active",
-                },
-                {
-                  icon: <ShieldCheck size={16} color={SG} />,
-                  title: "Anti-Fraud Hash",
-                  desc: "Tamper-proof SHA-256 fingerprint on every certificate",
-                  badge: "Active",
-                },
-              ].map((s, i) => (
-                <div
-                  key={i}
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <SectionCard title="General Settings">
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div>
+                <label
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "12px 14px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: TX,
+                    display: "block",
+                    marginBottom: 6,
+                  }}
+                >
+                  Organization Name
+                </label>
+                <input
+                  defaultValue="Learnify AI"
+                  disabled
+                  style={{
+                    width: "100%",
                     border: `1px solid ${BD}`,
-                    borderRadius: 10,
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                    fontSize: 13,
+                    color: TX,
+                    outline: "none",
+                    background: "#F9FAFB",
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: TX,
+                    display: "block",
+                    marginBottom: 6,
+                  }}
+                >
+                  Certificate ID Prefix
+                </label>
+                <input
+                  value={prefix}
+                  onChange={(e) => setPrefix(e.target.value)}
+                  style={{
+                    width: "100%",
+                    border: `1px solid ${BD}`,
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                    fontSize: 13,
+                    color: TX,
+                    outline: "none",
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: TX,
+                    display: "block",
+                    marginBottom: 6,
+                  }}
+                >
+                  Expiry Preference
+                </label>
+                <select
+                  value={expiry}
+                  onChange={(e) => setExpiry(e.target.value)}
+                  style={{
+                    width: "100%",
+                    border: `1px solid ${BD}`,
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                    fontSize: 13,
+                    color: TX,
+                    outline: "none",
+                  }}
+                >
+                  <option value="No Expiry">No Expiry</option>
+                  <option value="1 Year">1 Year</option>
+                  <option value="2 Years">2 Years</option>
+                  <option value="5 Years">5 Years</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: TX,
+                    display: "block",
+                    marginBottom: 6,
+                  }}
+                >
+                  Timezone
+                </label>
+                <input
+                  defaultValue="Asia/Kolkata (IST)"
+                  disabled
+                  style={{
+                    width: "100%",
+                    border: `1px solid ${BD}`,
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                    fontSize: 13,
+                    color: TX,
+                    outline: "none",
+                    background: "#F9FAFB",
+                  }}
+                />
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Btn variant="primary" onClick={handleSave}>
+                {saving ? "Saving..." : "Save Changes"}
+              </Btn>
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Notifications & Automation">
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {[
+              {
+                label: "Email Notifications",
+                sub: "Send email to recipients when certificate is issued",
+                val: emailNotif,
+                set: setEmailNotif,
+              },
+              {
+                label: "Blockchain Verification",
+                sub: "Enable blockchain hash for tamper detection",
+                val: blockchain,
+                set: setBlockchain,
+              },
+              {
+                label: "Show QR Code",
+                sub: "Render QR Code on certificate for direct mobile scans",
+                val: qrCode,
+                set: setQrCode,
+              },
+            ].map((t) => (
+              <div
+                key={t.label}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "12px 0",
+                  borderBottom: `1px solid ${BD}`,
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: TX }}>{t.label}</div>
+                  <div style={{ fontSize: 12, color: TX2 }}>{t.sub}</div>
+                </div>
+                <div
+                  onClick={() => t.set(!t.val)}
+                  style={{
+                    width: 44,
+                    height: 24,
+                    borderRadius: 999,
+                    background: t.val ? P : BD,
+                    position: "relative",
+                    cursor: "pointer",
+                    transition: "background 0.2s",
+                    flexShrink: 0,
                   }}
                 >
                   <div
                     style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 8,
-                      background: PL,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
+                      width: 18,
+                      height: 18,
+                      borderRadius: "50%",
+                      background: "white",
+                      position: "absolute",
+                      top: 3,
+                      left: t.val ? 23 : 3,
+                      transition: "left 0.2s",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
                     }}
-                  >
-                    {s.icon}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: TX }}>{s.title}</div>
-                    <div style={{ fontSize: 12, color: TX2 }}>{s.desc}</div>
-                  </div>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      padding: "3px 10px",
-                      borderRadius: 6,
-                      background: SGL,
-                      color: SG,
-                    }}
-                  >
-                    {s.badge}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-        )}
-
-        {settingsNav === "Branding" && (
-          <SectionCard title="Branding">
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                {field("Organization Name", orgName, setOrgName, "Learnify AI")}
-                <div>
-                  <label
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: TX,
-                      display: "block",
-                      marginBottom: 6,
-                    }}
-                  >
-                    Brand Accent Color
-                  </label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input
-                      type="color"
-                      value={brandColor}
-                      onChange={(e) => setBrandColor(e.target.value)}
-                      style={{ width: 40, height: 36, border: `1px solid ${BD}`, borderRadius: 8, cursor: "pointer" }}
-                    />
-                    <input
-                      value={brandColor}
-                      onChange={(e) => setBrandColor(e.target.value)}
-                      style={{
-                        flex: 1,
-                        border: `1px solid ${BD}`,
-                        borderRadius: 8,
-                        padding: "8px 12px",
-                        fontSize: 13,
-                        color: TX,
-                        outline: "none",
-                      }}
-                    />
-                  </div>
+                  />
                 </div>
               </div>
-              {field("Logo URL", logoUrl, setLogoUrl, "/logo.png")}
+            ))}
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <Btn variant="primary" onClick={handleSave}>
+                {saving ? "Saving..." : "Save Changes"}
+              </Btn>
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Security">
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {[
+              {
+                icon: <Lock size={16} color={P} />,
+                title: "Rate Limiting",
+                desc: "Max 60 verification requests per minute per IP",
+                badge: "Active",
+                badgeBg: SGL,
+                badgeColor: SG,
+              },
+              {
+                icon: <Shield size={16} color={IN} />,
+                title: "SSL/TLS",
+                desc: "All data encrypted in transit",
+                badge: "Active",
+                badgeBg: SGL,
+                badgeColor: SG,
+              },
+              {
+                icon: <Zap size={16} color={WO} />,
+                title: "Audit Log",
+                desc: "All actions logged with user ID and timestamp",
+                badge: "Active",
+                badgeBg: SGL,
+                badgeColor: SG,
+              },
+            ].map((s, i) => (
               <div
+                key={i}
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: 12,
-                  padding: "10px 14px",
-                  background: "#F8FAFC",
+                  padding: "12px 14px",
                   border: `1px solid ${BD}`,
                   borderRadius: 10,
                 }}
               >
-                <img
-                  src={logoUrl}
-                  alt="Logo preview"
-                  style={{ width: 42, height: 42, objectFit: "contain", background: "white", borderRadius: 8, border: `1px solid ${BD}` }}
-                  onError={(e) => ((e.target as HTMLElement).style.opacity = "0.2")}
-                />
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: TX }}>Logo Preview</div>
-                  <div style={{ fontSize: 11, color: TX2 }}>Shown on issued certificates and emails.</div>
-                </div>
-              </div>
-              {saveRow()}
-            </div>
-          </SectionCard>
-        )}
-
-        {settingsNav === "Email" && (
-          <SectionCard title="Email Settings">
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                {field("From Address", emailFrom, setEmailFrom, "support.learnifyai@gmail.com")}
-                {field("Reply-To", emailReplyTo, setEmailReplyTo, "support.learnifyai@gmail.com")}
-              </div>
-              {toggleRow("Email Notifications", "Send email to recipients when certificate is issued", emailNotif, setEmailNotif)}
-              {saveRow()}
-            </div>
-          </SectionCard>
-        )}
-
-        {settingsNav === "Domain" && (
-          <SectionCard title="Verification Domain">
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {field("Custom Verification Domain", verifyDomain, setVerifyDomain, "learnifyai.in")}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "10px 14px",
-                  background: SGL,
-                  borderRadius: 10,
-                }}
-              >
-                <Globe size={16} color={SG} />
-                <span style={{ fontSize: 12, color: SG, fontWeight: 600 }}>
-                  Certificates verify at https://{verifyDomain}/verify/&lt;code&gt;
-                </span>
-              </div>
-              {saveRow()}
-            </div>
-          </SectionCard>
-        )}
-
-        {settingsNav === "Team" && (
-          <SectionCard
-            title={`Team Access${
-              teamMembers.length > 0 ? ` — ${teamMembers.length} member${teamMembers.length === 1 ? "" : "s"}` : ""
-            }`}
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {/* Add member search */}
-              <div style={{ position: "relative" }}>
                 <div
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    border: `1px solid ${BD}`,
-                    borderRadius: 10,
-                    padding: "8px 12px",
-                  }}
-                >
-                  <Search size={14} color={TX2} />
-                  <input
-                    value={teamSearch}
-                    onChange={(e) => setTeamSearch(e.target.value)}
-                    placeholder="Add member — search by name or email…"
-                    style={{
-                      flex: 1,
-                      border: "none",
-                      outline: "none",
-                      fontSize: 13,
-                      color: TX,
-                      background: "transparent",
-                    }}
-                  />
-                  {teamBusy && (
-                    <Loader2 size={14} color={P} style={{ animation: "spin 1s linear infinite" }} />
-                  )}
-                </div>
-                {teamResults.length > 0 && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "calc(100% + 6px)",
-                      left: 0,
-                      right: 0,
-                      zIndex: 20,
-                      background: "#fff",
-                      border: `1px solid ${BD}`,
-                      borderRadius: 10,
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {teamResults.map((u: any) => (
-                      <button
-                        key={u.id}
-                        onClick={() => teamAddMember(u)}
-                        disabled={teamBusy === u.id}
-                        style={{
-                          width: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          padding: "9px 12px",
-                          border: "none",
-                          borderBottom: `1px solid ${BD}`,
-                          background: "transparent",
-                          cursor: "pointer",
-                          textAlign: "left",
-                        }}
-                        onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "#f5f5ff")}
-                        onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "transparent")}
-                      >
-                        <div
-                          style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: "50%",
-                            background: `${P}18`,
-                            color: P,
-                            fontWeight: 700,
-                            fontSize: 12,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {(u.full_name || u.email || "?")[0]?.toUpperCase()}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: TX }}>
-                            {u.full_name || "Unnamed user"}
-                          </div>
-                          <div style={{ fontSize: 11, color: TX2 }}>{u.email}</div>
-                        </div>
-                        <UserPlus size={14} color={P} />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {teamLoading ? (
-                <div
-                  style={{
-                    padding: "18px 0",
-                    textAlign: "center",
-                    fontSize: 12,
-                    color: TX2,
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    background: PL,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: 8,
+                    flexShrink: 0,
                   }}
                 >
-                  <Loader2 size={14} color={P} style={{ animation: "spin 1s linear infinite" }} />
-                  Loading team…
+                  {s.icon}
                 </div>
-              ) : teamMembers.length === 0 ? (
-                <div
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: TX }}>{s.title}</div>
+                  <div style={{ fontSize: 12, color: TX2 }}>{s.desc}</div>
+                </div>
+                <span
                   style={{
-                    padding: "18px 0",
-                    textAlign: "center",
-                    fontSize: 12,
-                    color: TX2,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: "3px 10px",
+                    borderRadius: 6,
+                    background: s.badgeBg,
+                    color: s.badgeColor,
                   }}
                 >
-                  No team members yet. Search above to add your first member.
-                </div>
-              ) : (
-                teamMembers.map((m: any) => {
-                  const meta = TEAM_ROLE_META[m.role] ?? { label: m.role, color: TX2 };
-                  const busy = teamBusy === m.user_id;
-                  return (
-                    <div
-                      key={m.user_id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        padding: "10px 14px",
-                        border: `1px solid ${BD}`,
-                        borderRadius: 10,
-                      }}
-                    >
-                      {m.avatar_url ? (
-                        <img
-                          src={m.avatar_url}
-                          alt=""
-                          style={{
-                            width: 34,
-                            height: 34,
-                            borderRadius: "50%",
-                            objectFit: "cover",
-                            flexShrink: 0,
-                          }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: 34,
-                            height: 34,
-                            borderRadius: "50%",
-                            background: `${meta.color}18`,
-                            color: meta.color,
-                            fontWeight: 700,
-                            fontSize: 13,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {(m.full_name || m.email || "?")[0]?.toUpperCase()}
-                        </div>
-                      )}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: TX }}>
-                          {m.full_name || "Unnamed user"}
-                        </div>
-                        <div style={{ fontSize: 12, color: TX2 }}>{m.email}</div>
-                      </div>
-                      <select
-                        value={m.role}
-                        disabled={busy}
-                        onChange={(e) => teamChangeRole(m.user_id, m.role, e.target.value)}
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          padding: "5px 8px",
-                          borderRadius: 8,
-                          border: `1px solid ${BD}`,
-                          color: TX,
-                          background: "#fff",
-                          cursor: "pointer",
-                          outline: "none",
-                        }}
-                      >
-                        <option value="super_admin">Owner</option>
-                        <option value="admin">Admin</option>
-                        <option value="issuer">Issuer</option>
-                      </select>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          padding: "3px 10px",
-                          borderRadius: 6,
-                          background: `${meta.color}12`,
-                          color: meta.color,
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {meta.label}
-                      </span>
-                      <button
-                        onClick={() => teamRemoveMember(m)}
-                        disabled={busy}
-                        title="Remove from team"
-                        style={{
-                          border: "none",
-                          background: "transparent",
-                          cursor: busy ? "not-allowed" : "pointer",
-                          color: "#ef4444",
-                          opacity: busy ? 0.5 : 1,
-                          padding: 4,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        {busy ? (
-                          <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
-                        ) : (
-                          <Trash2 size={14} />
-                        )}
-                      </button>
-                    </div>
-                  );
-                })
-              )}
-              <p style={{ fontSize: 12, color: TX2, marginTop: 2 }}>
-                Owners and Admins can issue and manage certificates. Issuers can issue certificates
-                only. Role changes apply immediately.
-              </p>
-            </div>
-          </SectionCard>
-        )}
+                  {s.badge}
+                </span>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
       </div>
     </div>
   );
@@ -7489,14 +8430,6 @@ export function CertDesignerAdmin() {
 
   // DesignerWorkspace full-screen mode
   if (showDesignerWorkspace && designerTemplate) {
-    const rawConfig = designerTemplate.fields_json;
-    const elementBased = rawConfig && Array.isArray(rawConfig.elements);
-    const openedConfig = elementBased
-      ? rawConfig
-      : {
-          elements: fieldsToElements(rawConfig || {}).elements,
-          design: themeToDesign(designerTemplate.theme_colors || undefined),
-        };
     return (
       <DesignerWorkspace
         initialTemplate={{
@@ -7505,7 +8438,7 @@ export function CertDesignerAdmin() {
           type: designerTemplate.category || "Certificate",
           layout: designerTemplate.fields_json?.design?.layout || "classic",
           bg_image_url: designerTemplate.bg_image_url || "",
-          config_json: openedConfig,
+          config_json: designerTemplate.fields_json || { elements: [], design: {} },
         }}
         onSave={async (tmpl) => {
           await doSave({
@@ -7596,21 +8529,11 @@ export function CertDesignerAdmin() {
             handleSeed={handleSeed}
             handleEdit={handleEdit}
             handleDelete={handleDelete}
-            handleNew={handleNew}
             isLoading={isLoading}
           />
         );
       case "designer":
-        return (
-          <DesignerStartScreen
-            dbTemplates={templates}
-            handleSeed={handleSeed}
-            handleEdit={handleEdit}
-            handleDelete={handleDelete}
-            isLoading={isLoading}
-            onNewTemplate={handleNew}
-          />
-        );
+        return <DesignerCanvasScreen />;
       case "bulk-issue":
         return <BulkIssueScreen courses={courses} templates={templates} />;
       case "verification":
@@ -7660,30 +8583,28 @@ export function CertDesignerAdmin() {
           boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
         }}
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-6 pb-2">
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 8,
-                background: PL,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              {info.icon}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <h1 style={{ fontSize: 20, fontWeight: 700, color: TX, margin: 0, lineHeight: 1.2 }}>
-                {info.title}
-              </h1>
-              <p style={{ fontSize: 13, color: TX2, margin: 0 }}>{info.subtitle}</p>
-            </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 24px 0" }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              background: PL,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            {info.icon}
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: TX, margin: 0, lineHeight: 1.2 }}>
+              {info.title}
+            </h1>
+            <p style={{ fontSize: 13, color: TX2, margin: 0 }}>{info.subtitle}</p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
             <Btn
               variant="outline"
               onClick={() => setShowAiModal(true)}
@@ -7752,9 +8673,10 @@ export function CertDesignerAdmin() {
 
       {/* Main Content */}
       <div
-        className="p-3 sm:p-6 max-w-7xl mx-auto"
         style={{
+          padding: activeTab === "designer" ? "16px" : "20px 24px",
           maxWidth: activeTab === "designer" ? "100%" : 1400,
+          margin: "0 auto",
         }}
       >
         {renderScreen()}

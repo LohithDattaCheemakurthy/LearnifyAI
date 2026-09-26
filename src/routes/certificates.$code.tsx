@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useRef, useState, type ReactNode, type CSSProperties, type Ref } from "react";
+import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { Loader2, Award, Printer, Share2, Download, Mail, ChevronDown } from "lucide-react";
+import { Loader2, Award, Printer, Share2, Download, Mail } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,39 +23,9 @@ import { downloadElementAsPdf, downloadElementAsImage } from "@/lib/certificate-
 import { CertificateRender, DEFAULT_DESIGN, type CertDesign } from "@/components/CertificateDesign";
 import { CertificateFullPreviewDialog } from "@/components/CertificateFullPreviewDialog";
 import { Maximize2, Image as ImageIcon } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/certificates/$code")({
-  head: ({ params }) => ({
-    meta: [
-      { title: `Certificate of Completion #${params.code} — Learnify AI` },
-      {
-        name: "description",
-        content: `Official Certificate of Completion #${params.code} issued by Learnify AI. High-resolution verifiable credential with permanent verification link.`,
-      },
-      { property: "og:type", content: "article" },
-      { property: "og:title", content: `Certificate of Completion #${params.code} — Learnify AI` },
-      {
-        property: "og:description",
-        content: `View and verify official Learnify AI course completion credential #${params.code}.`,
-      },
-      { property: "og:url", content: `https://www.learnifyai.in/certificates/${params.code}` },
-      { property: "og:image", content: "https://www.learnifyai.in/logo.png" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: `Certificate #${params.code} — Learnify AI` },
-      {
-        name: "twitter:description",
-        content: `Official certificate of completion verified on Learnify AI.`,
-      },
-      { name: "robots", content: "index, follow" },
-    ],
-    links: [{ rel: "canonical", href: `https://www.learnifyai.in/certificates/${params.code}` }],
-  }),
+  head: () => ({ meta: [{ title: "Certificate — Learnify AI" }] }),
   component: CertificatePage,
   errorComponent: ({ error }) => (
     <div className="min-h-screen grid place-items-center p-10 text-center">
@@ -69,51 +39,6 @@ export const Route = createFileRoute("/certificates/$code")({
     </div>
   ),
 });
-
-function ScaledCanvas({
-  children,
-  className,
-  style,
-  ref,
-}: {
-  children: ReactNode;
-  className?: string;
-  style?: CSSProperties;
-  ref?: Ref<HTMLDivElement>;
-}) {
-  const scaleRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-  useEffect(() => {
-    const el = scaleRef.current;
-    if (!el) return;
-    const update = () => setScale(el.clientWidth / 842);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return (
-    <div ref={ref} className={className} style={style}>
-      <div
-        ref={scaleRef}
-        style={{ width: "100%" }}
-      >
-        <div
-          style={{
-            width: 842,
-            height: 595,
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
-            position: "relative",
-            overflow: "hidden",
-          }}
-        >
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function CertificatePage() {
   const { code } = Route.useParams();
@@ -130,37 +55,12 @@ function CertificatePage() {
   const q = useQuery({
     queryKey: ["cert", code],
     queryFn: async () => {
-      // 1. Try the RPC first
       const { data: rpcData, error } = await supabase.rpc("get_certificate_by_code", {
         _code: code,
       });
       if (error) throw error;
-      let row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
-
-      // 2. Fallback: query certificates table directly if RPC returned nothing
-      if (!row) {
-        const { data: certDirect } = await supabase
-          .from("certificates")
-          .select("*, courses:course_id(title, instructor, category, certificate_template_id)")
-          .or(`code.eq.${code},id.eq.${code}`)
-          .maybeSingle();
-        if (certDirect) {
-          row = {
-            code: certDirect.code || code,
-            recipient_name: (certDirect as any).learner_name || (certDirect as any).recipient_name || "Learner",
-            course_title: (certDirect as any).courses?.title || "Learnify AI Course",
-            course_instructor: (certDirect as any).courses?.instructor || "Vishwajeet (Founder & CEO)",
-            issued_at: certDirect.issued_at,
-            score: certDirect.score,
-            total: certDirect.total,
-            design_snapshot: certDirect.design_snapshot,
-            course_id: certDirect.course_id,
-            created_by: (certDirect as any).created_by,
-          } as any;
-        }
-      }
-
-      if (!row) throw new Error("Certificate not found.");
+      const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+      if (!row) throw new Error("Certificate not found");
 
       const { data: certV2 } = await supabase
         .from("certificates")
@@ -168,66 +68,14 @@ function CertificatePage() {
         .eq("code", code)
         .maybeSingle();
 
-      let targetTemplateId = certV2?.template_id;
-
-      // If certificate doesn't have template_id, check the course's certificate_template_id
-      if (!targetTemplateId && (row as any)?.course_id) {
-        const { data: courseRow } = await supabase
-          .from("courses")
-          .select("certificate_template_id")
-          .eq("id", (row as any).course_id)
-          .maybeSingle();
-        targetTemplateId = (courseRow as any)?.certificate_template_id ?? null;
-      }
-
-      // If still no template_id, fetch the system default template
-      if (!targetTemplateId) {
-        const { data: defaultCanva } = await (supabase as any)
-          .from("canva_templates")
-          .select("id")
-          .eq("is_default", true)
-          .maybeSingle();
-        if (defaultCanva?.id) {
-          targetTemplateId = defaultCanva.id;
-        } else {
-          // Fallback to first available template if no default flag set
-          const { data: firstCanva } = await (supabase as any)
-            .from("canva_templates")
-            .select("id")
-            .limit(1)
-            .maybeSingle();
-          if (firstCanva?.id) targetTemplateId = firstCanva.id;
-        }
-      }
-
       let template = null;
-      if (targetTemplateId) {
-        const { data: canva } = await (supabase as any)
-          .from("canva_templates")
+      if (certV2?.template_id) {
+        const { data: tmpl } = await supabase
+          .from("certificate_templates")
           .select("*")
-          .eq("id", targetTemplateId)
+          .eq("id", certV2.template_id)
           .maybeSingle();
-        if (canva) {
-          const raw = canva as any;
-          if (Array.isArray(raw.fields_json?.elements)) {
-            template = { ...raw, config_json: raw.fields_json };
-          } else if (raw.fields_json && typeof raw.fields_json === "object") {
-            const { fieldsToElements, themeToDesign } = await import("@/lib/canva-cert.functions");
-            template = {
-              ...raw,
-              config_json: { elements: fieldsToElements(raw.fields_json), design: themeToDesign(raw.theme_colors) },
-            };
-          } else {
-            template = raw;
-          }
-        } else {
-          const { data: legacy } = await (supabase as any)
-            .from("certificate_templates")
-            .select("*")
-            .eq("id", targetTemplateId)
-            .maybeSingle();
-          template = legacy;
-        }
+        template = tmpl;
       }
 
       let issuerOrgLogoUrl = null;
@@ -269,20 +117,13 @@ function CertificatePage() {
   }
   if (q.error || !q.data) {
     return (
-      <div className="min-h-screen grid place-items-center p-10 text-center bg-gradient-to-br from-slate-100 via-indigo-50 to-violet-100">
-        <div className="bg-white/80 backdrop-blur rounded-3xl shadow-xl border p-10 max-w-md w-full">
-          <Award className="h-14 w-14 mx-auto text-muted-foreground/40 mb-4" />
-          <h2 className="text-xl font-bold text-foreground mb-2">Certificate Not Found</h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            We couldn't find a certificate with code <code className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">{code}</code>.
-            It may have been deleted, the code may be incorrect, or it hasn't been issued yet.
-          </p>
-          <div className="flex items-center justify-center gap-3">
-            <Link to="/certificates">
-              <Button variant="outline">← My Certificates</Button>
-            </Link>
-            <Button onClick={() => q.refetch()}>Retry</Button>
-          </div>
+      <div className="min-h-screen grid place-items-center p-10 text-center">
+        <div>
+          <Award className="h-10 w-10 mx-auto text-muted-foreground" />
+          <p className="mt-4 text-sm text-muted-foreground">Certificate not found.</p>
+          <Link to="/" className="text-primary underline text-sm mt-2 inline-block">
+            Home
+          </Link>
         </div>
       </div>
     );
@@ -375,11 +216,9 @@ function CertificatePage() {
     >
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between gap-2 mb-4 print:hidden flex-wrap">
-          <div className="flex items-center gap-2">
-            <Link to="/certificates" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
-              ← Certificates
-            </Link>
-          </div>
+          <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
+            ← Home
+          </Link>
           <div className="flex gap-2 flex-wrap">
             <Button size="sm" variant="outline" onClick={() => setFullPreviewOpen(true)}>
               <Maximize2 className="h-4 w-4" /> Expand
@@ -403,48 +242,40 @@ function CertificatePage() {
                 window.open(linkedinUrl, "_blank", "noopener,noreferrer");
               }}
             >
-              LinkedIn
+              Add to LinkedIn
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" disabled={downloading}>
-                  {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                  {" "}Download
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleDownloadPdf}>
-                  <Download className="h-3.5 w-3.5 mr-2" /> PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleDownloadImage}>
-                  <ImageIcon className="h-3.5 w-3.5 mr-2" /> Image (PNG)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => window.print()}>
-                  <Printer className="h-3.5 w-3.5 mr-2" /> Print
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
             <Button size="sm" variant="outline" onClick={() => setEmailOpen(true)}>
               <Mail className="h-4 w-4" /> Email
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" /> Print
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleDownloadImage} disabled={downloading}>
+              <ImageIcon className="h-4 w-4" /> Image
+            </Button>
+            <Button size="sm" onClick={handleDownloadPdf} disabled={downloading}>
+              {downloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}{" "}
+              PDF
             </Button>
           </div>
         </div>
 
         {row.v2?.certificate_templates ? (
-          <ScaledCanvas
-            className="relative w-full mx-auto overflow-hidden shadow-2xl"
+          <div
             ref={certRef}
-            style={{ aspectRatio: "1.414 / 1" }}
+            className="relative w-full mx-auto overflow-hidden shadow-2xl"
+            style={{
+              aspectRatio: "1.414 / 1",
+              background: row.v2.certificate_templates.bg_image_url
+                ? `#fdfbf5 url(${row.v2.certificate_templates.bg_image_url}) center/cover no-repeat`
+                : "#fdfbf5",
+              colorScheme: "light",
+            }}
           >
-            <div
-              className="absolute inset-0"
-              style={{
-                background: row.v2.certificate_templates.bg_image_url
-                  ? `#fdfbf5 url(${row.v2.certificate_templates.bg_image_url}) center/cover no-repeat`
-                  : "#fdfbf5",
-                colorScheme: "light",
-              }}
-            />
             {row.v2.certificate_templates.config_json?.elements?.length > 0 ? (
               row.v2.certificate_templates.config_json.elements.map((el: any) => {
                 let content = el.content || "";
@@ -483,23 +314,6 @@ function CertificatePage() {
                       }}
                     >
                       <img src={logoUrl} alt="Org Logo" className="w-full h-full object-contain" />
-                    </div>
-                  );
-                }
-
-                if (el.type === "image" && el.url) {
-                  return (
-                    <div
-                      key={el.id}
-                      className="absolute"
-                      style={{
-                        left: el.x,
-                        top: el.y,
-                        width: el.width || 100,
-                        height: el.height || 60,
-                      }}
-                    >
-                      <img src={el.url} alt="" className="w-full h-full object-contain" />
                     </div>
                   );
                 }
@@ -572,7 +386,7 @@ function CertificatePage() {
                 <div className="text-[10px] font-mono mt-1 text-gray-400">{ctx.code}</div>
               </div>
             )}
-          </ScaledCanvas>
+          </div>
         ) : (
           <CertificateRender ref={certRef} design={design} ctx={ctx} />
         )}

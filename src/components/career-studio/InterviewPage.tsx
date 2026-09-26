@@ -43,10 +43,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { generateInterviewQuestion, evaluateInterviewAnswer } from "@/lib/resume.functions";
 import { ThreeAvatarCanvas } from "@/components/career-studio/ThreeAvatarCanvas";
-import { HumanPhotoAvatar } from "@/components/career-studio/HumanPhotoAvatar";
 import { Link } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
 
 const JOB_ROLES = [
   { id: "frontend", label: "Frontend Developer", icon: Palette },
@@ -168,34 +165,6 @@ const DEFAULT_PRESET: Question = {
 };
 
 /* ── Interactive SVG Talking Avatar ── */
-const CHAR_VISEME: Record<string, string> = {
-  a: "A",
-  e: "A",
-  i: "E",
-  o: "O",
-  u: "O",
-  m: "B",
-  b: "B",
-  p: "B",
-  f: "D",
-  v: "D",
-  w: "O",
-  t: "C",
-  d: "C",
-  s: "E",
-  z: "E",
-  k: "C",
-  g: "C",
-  l: "A",
-  n: "A",
-  r: "A",
-  h: "E",
-};
-
-function visemeForChar(ch: string): string {
-  return CHAR_VISEME[ch.toLowerCase()] ?? "A";
-}
-
 function SVGAvatar({ viseme, avatarModel }: { viseme: string; avatarModel: string }) {
   const isSarah = avatarModel === "sarah";
   const name = isSarah ? "Sarah Jenkins" : "Alex Rivera";
@@ -370,7 +339,7 @@ export function InterviewPage({ embedded = false }: { embedded?: boolean }) {
   const [customRole, setCustomRole] = useState(() => {
     return (typeof window !== "undefined" && localStorage.getItem("interview_custom_role")) || "";
   });
-  const [avatarModel, setAvatarModel] = useState<"eric" | "sarah" | "alex" | "human">("eric");
+  const [avatarModel, setAvatarModel] = useState<"eric" | "sarah" | "alex">("eric");
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">(() => {
     return (typeof window !== "undefined" && (localStorage.getItem("interview_difficulty") as any)) || "medium";
   });
@@ -457,30 +426,6 @@ export function InterviewPage({ embedded = false }: { embedded?: boolean }) {
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [viseme, setViseme] = useState("X");
 
-  // Human avatar from the user's profile photo
-  const { user } = useAuth();
-  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const { data } = await supabase
-          .from("profiles")
-          .select("avatar_url")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (!cancelled) setProfilePhotoUrl(data?.avatar_url ?? null);
-      } catch {
-        /* ignore */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
-
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -539,7 +484,14 @@ export function InterviewPage({ embedded = false }: { embedded?: boolean }) {
   useEffect(() => {
     if (!aiSpeaking) {
       setViseme("X");
+      return;
     }
+    const visemeKeys = ["A", "B", "C", "D", "E", "O"];
+    const timer = setInterval(() => {
+      const nextViseme = visemeKeys[Math.floor(Math.random() * visemeKeys.length)];
+      setViseme(nextViseme);
+    }, 100);
+    return () => clearInterval(timer);
   }, [aiSpeaking]);
 
   useEffect(() => {
@@ -557,26 +509,8 @@ export function InterviewPage({ embedded = false }: { embedded?: boolean }) {
       utterance.pitch = 1.0;
 
       utterance.onstart = () => setAiSpeaking(true);
-      utterance.onend = () => {
-        setAiSpeaking(false);
-        setViseme("X");
-      };
-      utterance.onerror = () => {
-        setAiSpeaking(false);
-        setViseme("X");
-      };
-
-      utterance.onboundary = (event) => {
-        if (typeof event.charIndex !== "number") return;
-        const ch = text[event.charIndex];
-        if (!ch) return;
-        const mapped = visemeForChar(ch);
-        setViseme(mapped);
-        // Brief mouth-open hold so short vowels read naturally
-        setTimeout(() => {
-          setViseme((current) => (current === mapped ? "A" : current));
-        }, 180);
-      };
+      utterance.onend = () => setAiSpeaking(false);
+      utterance.onerror = () => setAiSpeaking(false);
 
       synthRef.current.speak(utterance);
     },
@@ -933,7 +867,27 @@ ${scores.map((sc, i) => `Q${i + 1}: ${sc}/100`).join("\n")}
             </div>
           </div>
 
-
+          <div className="rounded-2xl border bg-card p-6 space-y-3">
+            <h2 className="font-semibold flex items-center gap-2">
+              <Target className="h-4 w-4 text-primary" /> AI Interviewer Avatar
+            </h2>
+            <div className="p-4 rounded-xl border border-primary/40 bg-primary/5 flex items-center gap-4 relative overflow-hidden shadow-sm">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center text-white font-black text-xl shadow-md shrink-0">
+                EV
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-foreground">Eric Vance</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold border border-emerald-500/20">
+                    3D Interactive Avatar
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Senior Technical Lead & AI Interviewer · Waving, Lip-Sync, Smiling & Observing
+                </p>
+              </div>
+            </div>
+          </div>
 
           <div className="rounded-2xl border bg-card p-6">
             <h2 className="font-semibold mb-4 flex items-center gap-2">
@@ -1007,23 +961,12 @@ ${scores.map((sc, i) => `Q${i + 1}: ${sc}/100`).join("\n")}
                     AI Interactor:{" "}
                     {avatarModel === "eric"
                       ? "Eric (3D Technical Lead)"
-                      : avatarModel === "human"
-                        ? `${user?.user_metadata?.full_name || "You"} (Human Coach)`
-                        : avatarModel === "sarah"
-                          ? "Sarah (Senior Tech Lead)"
-                          : "Alex (Recruitment Lead)"}
+                      : avatarModel === "sarah"
+                        ? "Sarah (Senior Tech Lead)"
+                        : "Alex (Recruitment Lead)"}
                   </div>
 
-                  {avatarModel === "human" ? (
-                    <HumanPhotoAvatar
-                      photoUrl={profilePhotoUrl}
-                      aiSpeaking={aiSpeaking}
-                      viseme={viseme}
-                      avatarName={user?.user_metadata?.full_name || "Your Coach"}
-                      avatarTitle="Personal Human AI Interviewer"
-                      className="w-full h-56"
-                    />
-                  ) : avatarModel === "eric" ? (
+                  {avatarModel === "eric" ? (
                     <ThreeAvatarCanvas
                       aiSpeaking={aiSpeaking}
                       viseme={viseme}
@@ -1037,7 +980,7 @@ ${scores.map((sc, i) => `Q${i + 1}: ${sc}/100`).join("\n")}
                     {evaluating
                       ? "Evaluating..."
                       : aiSpeaking
-                        ? `${avatarModel === "eric" ? "Eric" : avatarModel === "human" ? "Your Coach" : avatarModel === "sarah" ? "Sarah" : "Alex"} is Speaking...`
+                        ? `${avatarModel === "eric" ? "Eric" : avatarModel === "sarah" ? "Sarah" : "Alex"} is Speaking...`
                         : isRecording
                           ? "Listening..."
                           : "Standing By..."}

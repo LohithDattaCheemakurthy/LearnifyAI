@@ -317,7 +317,6 @@ function LinkedInOptimizerView() {
   const { user } = useAuth();
 
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
-  const [photoError, setPhotoError] = useState(false);
   const [bannerBg, setBannerBg] = useState(
     "linear-gradient(135deg,#0f172a 0%,#1e1b4b 50%,#312e81 100%)",
   );
@@ -374,35 +373,6 @@ function LinkedInOptimizerView() {
 
   const photoRef = useRef<HTMLInputElement>(null);
 
-  // Auto-fetch profile photo from Supabase or user metadata if missing
-  useEffect(() => {
-    if (!user) return;
-    const metaPhoto = user.user_metadata?.avatar_url as string | undefined;
-    if (metaPhoto && !profilePhoto) {
-      setProfilePhoto(metaPhoto);
-      setPhotoError(false);
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const { data } = await supabase
-          .from("profiles")
-          .select("avatar_url")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (!cancelled && data?.avatar_url && !profilePhoto) {
-          setProfilePhoto(data.avatar_url);
-          setPhotoError(false);
-        }
-      } catch {
-        /* ignore */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
-
   // Persistence: Load from LocalStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem("learnify_linkedin_profile_v2");
@@ -419,10 +389,7 @@ function LinkedInOptimizerView() {
         if (data.projects) setProjects(data.projects);
         if (data.education) setEducation(data.education);
         if (data.featuredItems) setFeaturedItems(data.featuredItems);
-        if (data.profilePhoto) {
-          setProfilePhoto(data.profilePhoto);
-          setPhotoError(false);
-        }
+        if (data.profilePhoto) setProfilePhoto(data.profilePhoto);
         if (data.bannerBg) setBannerBg(data.bannerBg);
       } catch {
         // ignore fallback
@@ -462,7 +429,6 @@ function LinkedInOptimizerView() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       setProfilePhoto(ev.target?.result as string);
-      setPhotoError(false);
       toast.success("Profile photo uploaded!");
     };
     reader.readAsDataURL(file);
@@ -719,16 +685,15 @@ function LinkedInOptimizerView() {
               </div>
               <div className="px-5 pb-5 pt-3 -mt-10 flex items-end gap-4">
                 <div className="relative shrink-0">
-                  {profilePhoto && !photoError ? (
+                  {profilePhoto ? (
                     <img
                       src={profilePhoto}
                       alt="Profile"
-                      onError={() => setPhotoError(true)}
-                      className="h-20 w-20 rounded-full border-4 border-card bg-slate-900 object-cover shadow-xl"
+                      className="h-20 w-20 rounded-full border-4 border-card object-cover shadow-xl"
                     />
                   ) : (
-                    <div className="h-20 w-20 rounded-full border-4 border-card bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white flex items-center justify-center font-black text-2xl shadow-xl">
-                      {name?.trim() ? name.trim().charAt(0).toUpperCase() : "V"}
+                    <div className="h-20 w-20 rounded-full border-4 border-card bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-2xl shadow-xl">
+                      {name?.charAt(0) || "?"}
                     </div>
                   )}
                   <button
@@ -1203,43 +1168,29 @@ function LinkedInOptimizerView() {
             <div className="px-6 pb-6 -mt-14">
               <div className="flex items-end justify-between flex-wrap gap-4">
                 <div className="flex items-end gap-4">
-                  <div className="relative group shrink-0">
-                    {profilePhoto && !photoError ? (
-                      <img
-                        src={profilePhoto}
-                        alt={name}
-                        onError={() => setPhotoError(true)}
-                        className="h-28 w-28 rounded-full border-4 border-card bg-slate-900 object-cover shadow-2xl transition group-hover:brightness-90"
-                      />
-                    ) : (
-                      <div className="h-28 w-28 rounded-full border-4 border-card bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white flex items-center justify-center font-black text-4xl shadow-2xl">
-                        {name?.trim() ? name.trim().charAt(0).toUpperCase() : "V"}
-                      </div>
-                    )}
-                    <button
-                      onClick={() => photoRef.current?.click()}
-                      className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg hover:scale-110 transition cursor-pointer"
-                      title="Upload photo"
-                    >
-                      <Camera className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                  {profilePhoto ? (
+                    <img
+                      src={profilePhoto}
+                      alt={name}
+                      className="h-28 w-28 rounded-full border-4 border-card object-cover shadow-2xl"
+                    />
+                  ) : (
+                    <div className="h-28 w-28 rounded-full border-4 border-card bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-4xl shadow-2xl">
+                      {name?.charAt(0) || "?"}
+                    </div>
+                  )}
                   <div className="pb-1">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
                       <h3 className="font-black text-2xl text-foreground">{name || "Your Name"}</h3>
-                      <CheckCircle2 className="h-5 w-5 text-blue-500 fill-blue-500/20 shrink-0" />
+                      <CheckCircle2 className="h-5 w-5 text-blue-500 fill-blue-500/20" />
                       {pronouns && (
-                        <span className="text-xs text-muted-foreground font-semibold px-2 py-0.5 rounded-full bg-muted">
+                        <span className="text-xs text-muted-foreground font-semibold">
                           ({pronouns})
                         </span>
                       )}
                     </div>
-                    {headline && (
-                      <p className="text-sm font-semibold mt-1 max-w-xl text-foreground/90 leading-snug">
-                        {headline}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground font-medium flex-wrap">
+                    {headline && <p className="text-sm font-semibold mt-1 max-w-xl text-foreground/90">{headline}</p>}
+                    <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground font-medium flex-wrap">
                       {location && (
                         <span className="flex items-center gap-1">
                           <Globe className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1249,24 +1200,15 @@ function LinkedInOptimizerView() {
                       <span className="text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer">
                         500+ connections
                       </span>
-                      <span
-                        onClick={() => toast.info(`Contact info: ${name} · ${location}`)}
-                        className="text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer"
-                      >
-                        Contact info
-                      </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 pb-1 flex-wrap">
-                  <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-full shadow-sm cursor-pointer">
+                <div className="flex items-center gap-2 pb-1">
+                  <Badge className="bg-emerald-500 text-white font-bold text-xs px-3 py-1">
                     Open to Work
                   </Badge>
-                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-full shadow-sm">
-                    Message
-                  </Button>
-                  <Button size="sm" variant="outline" className="font-bold text-xs rounded-full">
+                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-full">
                     More Options
                   </Button>
                 </div>
@@ -1538,10 +1480,6 @@ function CareerAnalyticsView() {
   const [chartType, setChartType] = useState<"salary" | "demand">("salary");
   const [selectedRole, setSelectedRole] = useState<string>("AI/ML Eng");
   const [locationFilter, setLocationFilter] = useState<string>("India");
-  const [currency, setCurrency] = useState<"INR" | "USD">("INR");
-  const [customRoleInput, setCustomRoleInput] = useState("");
-  const [customRoleLoading, setCustomRoleLoading] = useState(false);
-  const [selectedLevel, setSelectedLevel] = useState<"entry" | "mid" | "senior" | "lead">("mid");
 
   const { data: userCourseCategories } = useQuery({
     queryKey: ["user-analytics-cats", user?.id],
@@ -1558,221 +1496,113 @@ function CareerAnalyticsView() {
     enabled: !!user,
   });
 
-  const baseSalaryData = [
+  const salaryData = [
     {
       role: "AI/ML Eng",
-      entry: 8,
-      mid: 18,
-      senior: 35,
-      lead: 55,
-      usdEntry: 75,
-      usdMid: 140,
-      usdSenior: 220,
+      entry: "8",
+      mid: "18",
+      senior: "35",
       match: userCourseCategories?.some((c) => /ai|ml|llm|gen/i.test(c)) ? 96 : 88,
-      companies: ["Google DeepMind", "OpenAI", "Microsoft", "Zomato", "Swiggy AI", "NVIDIA"],
-      skills: ["PyTorch", "LLM APIs", "Python", "Vector DBs", "RAG Pipeline", "LangChain"],
+      companies: ["Google DeepMind", "OpenAI", "Microsoft", "Zomato", "Swiggy AI"],
+      skills: ["PyTorch", "LLM APIs", "Python", "Vector DBs", "RAG Pipeline"],
       growth: "+185%",
       desc: "Architecting generative AI models, vector search indexing, and LLM application pipelines.",
     },
     {
       role: "Full Stack",
-      entry: 5,
-      mid: 12,
-      senior: 22,
-      lead: 38,
-      usdEntry: 60,
-      usdMid: 110,
-      usdSenior: 175,
+      entry: "5",
+      mid: "12",
+      senior: "22",
       match: userCourseCategories?.some((c) => /full|web|mern/i.test(c)) ? 95 : 75,
-      companies: ["Razorpay", "Flipkart", "Postman", "Atlassian", "PhonePe", "Stripe"],
-      skills: ["React 19", "Next.js", "TypeScript", "Node.js", "PostgreSQL", "Tailwind CSS"],
+      companies: ["Razorpay", "Flipkart", "Postman", "Atlassian", "PhonePe"],
+      skills: ["React 19", "Next.js", "TypeScript", "Node.js", "PostgreSQL"],
       growth: "+45%",
       desc: "Building end-to-end user interfaces, backend APIs, and real-time database applications.",
     },
     {
       role: "Backend Dev",
-      entry: 4,
-      mid: 10,
-      senior: 20,
-      lead: 34,
-      usdEntry: 55,
-      usdMid: 95,
-      usdSenior: 160,
+      entry: "4",
+      mid: "10",
+      senior: "20",
       match: userCourseCategories?.some((c) => /back|api|node/i.test(c)) ? 90 : 65,
-      companies: ["Uber India", "CRED", "Paytm", "Swiggy", "JPMorgan", "Databricks"],
-      skills: ["Go / Python", "Node.js", "Microservices", "Redis", "Kafka", "PostgreSQL"],
+      companies: ["Uber India", "CRED", "Paytm", "Swiggy", "JPMorgan"],
+      skills: ["Go / Python", "Node.js", "Microservices", "Redis", "Kafka"],
       growth: "+50%",
       desc: "Designing high-throughput API gateways, database schemas, and message queues.",
     },
     {
       role: "Frontend Dev",
-      entry: 3.5,
-      mid: 8,
-      senior: 15,
-      lead: 26,
-      usdEntry: 50,
-      usdMid: 85,
-      usdSenior: 140,
+      entry: "3.5",
+      mid: "8",
+      senior: "15",
       match: userCourseCategories?.some((c) => /front|ui|react/i.test(c)) ? 92 : 70,
-      companies: ["Swiggy", "Unacademy", "Zepto", "Cars24", "InMobi", "Vercel"],
-      skills: ["React", "TypeScript", "Tailwind CSS", "Figma", "Web Performance", "TanStack"],
+      companies: ["Swiggy", "Unacademy", "Zepto", "Cars24", "InMobi"],
+      skills: ["React", "TypeScript", "Tailwind CSS", "Figma", "Web Performance"],
       growth: "+35%",
       desc: "Designing responsive, accessible, pixel-perfect user interfaces with micro-animations.",
     },
     {
       role: "Data Scientist",
-      entry: 6,
-      mid: 15,
-      senior: 28,
-      lead: 45,
-      usdEntry: 65,
-      usdMid: 120,
-      usdSenior: 190,
+      entry: "6",
+      mid: "15",
+      senior: "28",
       match: userCourseCategories?.some((c) => /data|ml|ai/i.test(c)) ? 88 : 60,
       companies: ["Fractal Analytics", "Tiger Analytics", "Mu Sigma", "Amazon", "Walmart Labs"],
-      skills: ["Python", "SQL", "Pandas", "Scikit-Learn", "Tableau / PowerBI", "TensorFlow"],
+      skills: ["Python", "SQL", "Pandas", "Scikit-Learn", "Tableau / PowerBI"],
       growth: "+65%",
       desc: "Extracting actionable business insights, predictive modeling, and statistical analysis.",
     },
     {
       role: "DevOps Eng",
-      entry: 5.5,
-      mid: 13,
-      senior: 25,
-      lead: 40,
-      usdEntry: 65,
-      usdMid: 115,
-      usdSenior: 180,
+      entry: "5.5",
+      mid: "13",
+      senior: "25",
       match: userCourseCategories?.some((c) => /devops|cloud|aws/i.test(c)) ? 87 : 55,
-      companies: ["AWS India", "Red Hat", "NVIDIA", "Dell Technologies", "Oracle", "HashiCorp"],
-      skills: ["Docker", "Kubernetes", "AWS", "Terraform", "CI/CD Pipelines", "Helm"],
+      companies: ["AWS India", "Red Hat", "NVIDIA", "Dell Technologies", "Oracle"],
+      skills: ["Docker", "Kubernetes", "AWS", "Terraform", "CI/CD Pipelines"],
       growth: "+62%",
       desc: "Managing cloud infrastructure, container orchestration, automated deployments, and security monitoring.",
     },
     {
       role: "UI/UX Designer",
-      entry: 3.5,
-      mid: 9,
-      senior: 18,
-      lead: 30,
-      usdEntry: 45,
-      usdMid: 80,
-      usdSenior: 135,
+      entry: "3.5",
+      mid: "9",
+      senior: "18",
       match: userCourseCategories?.some((c) => /ui|ux|design|figma/i.test(c)) ? 91 : 58,
-      companies: ["Licious", "CRED", "MakeMyTrip", "OYO", "Freecharge", "Figma"],
-      skills: ["Figma", "User Research", "Wireframing", "Design Systems", "Prototyping", "Design Tokens"],
+      companies: ["Licious", "CRED", "MakeMyTrip", "OYO", "Freecharge"],
+      skills: ["Figma", "User Research", "Wireframing", "Design Systems", "Prototyping"],
       growth: "+40%",
       desc: "Creating high-fidelity design prototypes, user journey flows, and cohesive brand design systems.",
     },
     {
       role: "Product Manager",
-      entry: 6,
-      mid: 15,
-      senior: 30,
-      lead: 50,
-      usdEntry: 70,
-      usdMid: 130,
-      usdSenior: 200,
+      entry: "6",
+      mid: "15",
+      senior: "30",
       match: userCourseCategories?.some((c) => /product|manage|pm/i.test(c)) ? 85 : 62,
-      companies: ["Paytm", "MakeMyTrip", "Freshworks", "Ola", "BrowserStack", "Atlassian"],
-      skills: ["Product Roadmap", "User Stories", "A/B Testing", "Agile / Scrum", "Data Analytics", "PRDs"],
+      companies: ["Paytm", "MakeMyTrip", "Freshworks", "Ola", "BrowserStack"],
+      skills: ["Product Roadmap", "User Stories", "A/B Testing", "Agile / Scrum", "Data Analytics"],
       growth: "+55%",
       desc: "Leading cross-functional engineering teams, feature prioritization, and product vision.",
     },
   ];
 
-  const isRemoteOrUsd = locationFilter === "Remote" || currency === "USD";
-
-  const salaryData = baseSalaryData.map((item) => {
-    const locMultiplier =
-      locationFilter === "Bengaluru"
-        ? 1.15
-        : locationFilter === "Hyderabad"
-          ? 1.08
-          : 1.0;
-
-    if (isRemoteOrUsd) {
-      return {
-        ...item,
-        entryStr: `$${item.usdEntry}K`,
-        midStr: `$${item.usdMid}K`,
-        seniorStr: `$${item.usdSenior}K`,
-        rangeStr: `$${item.usdEntry}K - $${item.usdSenior}K / yr`,
-        currencySymbol: "$",
-        unit: "K / yr",
-        entryVal: item.usdEntry,
-        midVal: item.usdMid,
-        seniorVal: item.usdSenior,
-        maxVal: 250,
-      };
-    }
-
-    const entryInr = (item.entry * locMultiplier).toFixed(1).replace(/\.0$/, "");
-    const midInr = (item.mid * locMultiplier).toFixed(1).replace(/\.0$/, "");
-    const seniorInr = (item.senior * locMultiplier).toFixed(1).replace(/\.0$/, "");
-
-    return {
-      ...item,
-      entryStr: `₹${entryInr}L`,
-      midStr: `₹${midInr}L`,
-      seniorStr: `₹${seniorInr}L`,
-      rangeStr: `₹${entryInr}L - ₹${seniorInr}L LPA`,
-      currencySymbol: "₹",
-      unit: "L LPA",
-      entryVal: Number(entryInr),
-      midVal: Number(midInr),
-      seniorVal: Number(seniorInr),
-      maxVal: 40,
-    };
-  });
-
   const demandData = [
-    { skill: "Generative AI & LLMs", demand: 94, growth: 185 },
-    { skill: "Agentic AI & MCP Frameworks", demand: 88, growth: 210 },
-    { skill: "Full Stack (React 19 + Node)", demand: 85, growth: 45 },
+    { skill: "Generative AI", demand: 94, growth: 185 },
+    { skill: "Agentic AI & MCP", demand: 88, growth: 210 },
+    { skill: "Full Stack (React+Node)", demand: 85, growth: 45 },
     { skill: "DevOps & Kubernetes", demand: 78, growth: 62 },
-    { skill: "Data Engineering & Vector DBs", demand: 76, growth: 55 },
-    { skill: "Cybersecurity & Zero Trust", demand: 72, growth: 70 },
-    { skill: "Cloud Architecture (AWS/GCP)", demand: 70, growth: 48 },
-    { skill: "Mobile App Dev (React Native/Flutter)", demand: 65, growth: 30 },
+    { skill: "Data Engineering", demand: 76, growth: 55 },
+    { skill: "Cybersecurity", demand: 72, growth: 70 },
+    { skill: "Cloud Architecture", demand: 70, growth: 48 },
+    { skill: "Mobile App Dev", demand: 65, growth: 30 },
   ];
 
   const bestFit = [...salaryData].sort((a, b) => b.match - a.match)[0];
   const activeRoleData = salaryData.find((r) => r.role === selectedRole) || salaryData[0];
 
-  const handleCustomRoleGenerate = async () => {
-    const query = customRoleInput.trim();
-    if (!query) return toast.error("Enter a role name (e.g. Prompt Engineer, Quant Developer)");
-    setCustomRoleLoading(true);
-    setTimeout(() => {
-      setSelectedRole("AI/ML Eng");
-      setCustomRoleLoading(false);
-      toast.success(`Market intelligence updated for "${query}"!`);
-    }, 600);
-  };
-
-  const handleExportCsv = () => {
-    const headers = "Role,Entry Level,Mid Level,Senior Level,Growth YoY,Skill Match,Top Companies,Skills\n";
-    const rows = salaryData
-      .map(
-        (r) =>
-          `"${r.role}","${r.entryStr}","${r.midStr}","${r.seniorStr}","${r.growth}","${r.match}%","${r.companies.join(", ")}","${r.skills.join(", ")}"`,
-      )
-      .join("\n");
-
-    const blob = new Blob([headers + rows], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Career_Salary_Analytics_${locationFilter}_2026.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Downloaded Salary & Hiring Analytics (.csv)!");
-  };
-
   return (
-    <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
-      {/* Header */}
+    <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -1783,62 +1613,25 @@ function CareerAnalyticsView() {
             <TrendingUp className="h-6 w-6" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">Career & Salary Analytics (2026 Edition)</h2>
+            <h2 className="text-2xl font-bold tracking-tight">Career & Salary Analytics</h2>
             <p className="text-sm text-muted-foreground">
               Personalized market benchmarks & hiring demands based on your courses & interests.
             </p>
           </div>
         </div>
 
-        {/* Location & Currency Controls */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1 bg-muted p-1 rounded-xl border">
-            <button
-              onClick={() => setCurrency("INR")}
-              className={cn(
-                "px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer",
-                currency === "INR" && locationFilter !== "Remote"
-                  ? "bg-card text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              ₹ INR (LPA)
-            </button>
-            <button
-              onClick={() => {
-                setCurrency("USD");
-                setLocationFilter("Remote");
-              }}
-              className={cn(
-                "px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer",
-                isRemoteOrUsd
-                  ? "bg-card text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              $ USD (/yr)
-            </button>
-          </div>
-
+        {/* Location Filter Controls */}
+        <div className="flex items-center gap-2">
           <select
             value={locationFilter}
             onChange={(e) => setLocationFilter(e.target.value)}
             className="text-xs font-bold h-9 px-3 rounded-xl border border-input bg-card shadow-sm cursor-pointer"
           >
             <option value="India">📍 India (Pan India)</option>
-            <option value="Bengaluru">📍 Bengaluru / NCR (+15% Premium)</option>
-            <option value="Hyderabad">📍 Hyderabad / Pune (+8% Premium)</option>
-            <option value="Remote">🌐 Remote / Global (USD $ Rates)</option>
+            <option value="Bengaluru">📍 Bengaluru / NCR</option>
+            <option value="Hyderabad">📍 Hyderabad / Pune</option>
+            <option value="Remote">🌐 Remote / Global</option>
           </select>
-
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleExportCsv}
-            className="text-xs font-bold gap-1 rounded-xl"
-          >
-            <Download className="h-3.5 w-3.5" /> CSV
-          </Button>
         </div>
       </motion.div>
 
@@ -1849,7 +1642,7 @@ function CareerAnalyticsView() {
         className="p-5 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-cyan-500/15 border border-emerald-500/30 flex items-center justify-between gap-4 flex-wrap shadow-sm"
       >
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-emerald-500 text-white rounded-xl shadow-md shrink-0">
+          <div className="p-2.5 bg-emerald-500 text-white rounded-xl shadow-md">
             <Trophy className="h-5.5 w-5.5" />
           </div>
           <div>
@@ -1867,61 +1660,25 @@ function CareerAnalyticsView() {
         </div>
         <button
           onClick={() => setSelectedRole(bestFit.role)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-md cursor-pointer transition shrink-0"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-md cursor-pointer transition"
         >
           View Role Insights
         </button>
       </motion.div>
 
-      {/* Custom AI Role Search & Generator */}
-      <Card className="p-4 rounded-2xl border shadow-sm space-y-3 bg-gradient-to-br from-card to-muted/20">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-violet-500" />
-            <h3 className="text-sm font-bold">Custom Role Market Intelligence Search</h3>
-          </div>
-          <span className="text-xs text-muted-foreground font-semibold">
-            Search or query any custom job title
-          </span>
-        </div>
-        <div className="flex gap-2">
-          <input
-            id="ca-custom-role"
-            name="ca-custom-role"
-            className="w-full text-xs px-3 py-2 rounded-xl border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition"
-            placeholder="e.g. Prompt Engineer, Quant Developer, AI Security Specialist..."
-            value={customRoleInput}
-            onChange={(e) => setCustomRoleInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleCustomRoleGenerate()}
-          />
-          <Button
-            size="sm"
-            onClick={handleCustomRoleGenerate}
-            disabled={customRoleLoading}
-            className="bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs rounded-xl shrink-0 gap-1.5"
-          >
-            {customRoleLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            Analyze
-          </Button>
-        </div>
-      </Card>
-
       {/* 3 Metric Cards */}
       <div className="grid sm:grid-cols-3 gap-4">
         {[
           {
-            label: `Avg Entry - Senior Range (${locationFilter})`,
-            value: activeRoleData.rangeStr,
+            label: "Avg Entry Salary",
+            value: `₹${activeRoleData.entry}L - ₹${activeRoleData.senior}L LPA`,
             sub: `${activeRoleData.growth} demand growth YoY`,
             color: "text-emerald-600 dark:text-emerald-400",
             icon: DollarSign,
           },
           {
             label: "Top Hiring Hubs",
-            value:
-              locationFilter === "Remote"
-                ? "US, Europe, APAC, India"
-                : "Bengaluru, NCR, Pune, Hyderabad",
+            value: "Bengaluru, NCR, Pune, Hyderabad",
             sub: "68% of active job openings",
             color: "text-blue-600 dark:text-blue-400",
             icon: Map,
@@ -1955,7 +1712,7 @@ function CareerAnalyticsView() {
       </div>
 
       {/* Interactive Selected Role Detail Card */}
-      <Card className="p-6 rounded-2xl border bg-card shadow-sm space-y-5">
+      <Card className="p-6 rounded-2xl border bg-card shadow-sm space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3 border-b pb-4">
           <div>
             <div className="flex items-center gap-2">
@@ -1964,7 +1721,7 @@ function CareerAnalyticsView() {
                 {activeRoleData.match}% Match
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground mt-1 max-w-2xl">{activeRoleData.desc}</p>
+            <p className="text-xs text-muted-foreground mt-1">{activeRoleData.desc}</p>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground font-bold">Select Role:</span>
@@ -1982,76 +1739,10 @@ function CareerAnalyticsView() {
           </div>
         </div>
 
-        {/* Level Selector Tabs (Entry -> Mid -> Senior -> Lead) */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground">
-              Career Experience Level Breakdown
-            </span>
-            <div className="flex gap-1 bg-muted p-1 rounded-xl">
-              {(["entry", "mid", "senior", "lead"] as const).map((lvl) => (
-                <button
-                  key={lvl}
-                  onClick={() => setSelectedLevel(lvl)}
-                  className={cn(
-                    "px-3 py-1 rounded-lg text-xs font-bold capitalize transition cursor-pointer",
-                    selectedLevel === lvl
-                      ? "bg-card text-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {lvl}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl border bg-muted/20 grid sm:grid-cols-3 gap-4">
-            <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase">Estimated Salary</p>
-              <p className="text-base font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                {selectedLevel === "entry"
-                  ? activeRoleData.entryStr
-                  : selectedLevel === "mid"
-                    ? activeRoleData.midStr
-                    : selectedLevel === "senior"
-                      ? activeRoleData.seniorStr
-                      : isRemoteOrUsd
-                        ? `$${activeRoleData.usdSenior + 60}K`
-                        : `₹${(activeRoleData.seniorVal * 1.5).toFixed(1).replace(/\.0$/, "")}L LPA`}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase">Experience Range</p>
-              <p className="text-sm font-bold text-foreground mt-0.5">
-                {selectedLevel === "entry"
-                  ? "0 – 2 Years (Junior)"
-                  : selectedLevel === "mid"
-                    ? "3 – 5 Years (Mid-Level)"
-                    : selectedLevel === "senior"
-                      ? "6 – 9 Years (Senior Lead)"
-                      : "10+ Years (Architect / Staff)"}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase">Market Hiring Intensity</p>
-              <p className="text-sm font-bold text-blue-600 dark:text-blue-400 mt-0.5">
-                {selectedLevel === "entry"
-                  ? "High Volume (Freshers & Interns)"
-                  : selectedLevel === "mid"
-                    ? "Very High (Peak Industry Demand)"
-                    : selectedLevel === "senior"
-                      ? "High Compensation / Executive Search"
-                      : "Niche Leadership & Architecture"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid sm:grid-cols-2 gap-4 pt-2">
+        <div className="grid sm:grid-cols-2 gap-4">
           <div className="space-y-2 bg-muted/20 p-4 rounded-xl border">
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">
-              Core Required Skills ({activeRoleData.skills.length})
+              Core Required Skills
             </span>
             <div className="flex flex-wrap gap-2 pt-1">
               {activeRoleData.skills.map((s, i) => (
@@ -2063,7 +1754,7 @@ function CareerAnalyticsView() {
           </div>
           <div className="space-y-2 bg-muted/20 p-4 rounded-xl border">
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">
-              Top Hiring Companies
+              Top Hiring Companies in India
             </span>
             <div className="flex flex-wrap gap-2 pt-1">
               {activeRoleData.companies.map((c, i) => (
@@ -2081,7 +1772,7 @@ function CareerAnalyticsView() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border-b bg-muted/20 gap-3">
           <div className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-blue-600" />
-            <h3 className="text-sm font-bold">Salary Benchmarks ({isRemoteOrUsd ? "$ USD / yr" : "₹ LPA"}) & Market Demand</h3>
+            <h3 className="text-sm font-bold">Salary Benchmarks (₹ LPA) & Market Demand</h3>
           </div>
           <div className="flex gap-1 bg-muted rounded-lg p-0.5">
             <button
@@ -2109,7 +1800,7 @@ function CareerAnalyticsView() {
                 transition={{ delay: i * 0.03 }}
                 onClick={() => item.role && setSelectedRole(item.role)}
                 className={cn(
-                  "p-3.5 rounded-xl border transition-all cursor-pointer space-y-2",
+                  "p-3 rounded-xl border transition-all cursor-pointer space-y-1.5",
                   isSelected
                     ? "bg-primary/10 border-primary shadow-xs ring-1 ring-primary/20"
                     : "hover:bg-muted/30 border-border/70 bg-card",
@@ -2126,7 +1817,7 @@ function CareerAnalyticsView() {
                   </span>
                   <span className="font-extrabold text-blue-600 dark:text-blue-400">
                     {chartType === "salary"
-                      ? item.rangeStr
+                      ? `₹${item.entry}L - ₹${item.senior}L LPA`
                       : `${item.demand}% Demand`}
                   </span>
                 </div>
@@ -2135,18 +1826,18 @@ function CareerAnalyticsView() {
                     <>
                       <div
                         className="h-full bg-blue-400 rounded-l-full transition-all"
-                        style={{ width: `${(Number(item.entryVal) / item.maxVal) * 100}%` }}
-                        title={`Entry: ${item.entryStr}`}
+                        style={{ width: `${(Number(item.entry) / 35) * 100}%` }}
+                        title={`Entry: ₹${item.entry}L`}
                       />
                       <div
                         className="h-full bg-blue-500 transition-all"
-                        style={{ width: `${((Number(item.midVal) - Number(item.entryVal)) / item.maxVal) * 100}%` }}
-                        title={`Mid: ${item.midStr}`}
+                        style={{ width: `${((Number(item.mid) - Number(item.entry)) / 35) * 100}%` }}
+                        title={`Mid: ₹${item.mid}L`}
                       />
                       <div
                         className="h-full bg-blue-600 rounded-r-full transition-all"
-                        style={{ width: `${((Number(item.seniorVal) - Number(item.midVal)) / item.maxVal) * 100}%` }}
-                        title={`Senior: ${item.seniorStr}`}
+                        style={{ width: `${((Number(item.senior) - Number(item.mid)) / 35) * 100}%` }}
+                        title={`Senior: ₹${item.senior}L`}
                       />
                     </>
                   ) : (
@@ -2156,17 +1847,17 @@ function CareerAnalyticsView() {
                     />
                   )}
                 </div>
-                <div className="flex justify-between text-[10px] text-muted-foreground flex-wrap gap-2">
+                <div className="flex justify-between text-[10px] text-muted-foreground">
                   {chartType === "salary" ? (
                     <div className="flex gap-4">
                       <span className="flex items-center gap-1 font-semibold">
-                        <span className="w-2 h-2 rounded-sm bg-blue-400" /> Entry ({item.entryStr})
+                        <span className="w-2 h-2 rounded-sm bg-blue-400" /> Entry (₹{item.entry}L)
                       </span>
                       <span className="flex items-center gap-1 font-semibold">
-                        <span className="w-2 h-2 rounded-sm bg-blue-500" /> Mid ({item.midStr})
+                        <span className="w-2 h-2 rounded-sm bg-blue-500" /> Mid (₹{item.mid}L)
                       </span>
                       <span className="flex items-center gap-1 font-semibold">
-                        <span className="w-2 h-2 rounded-sm bg-blue-600" /> Senior ({item.seniorStr})
+                        <span className="w-2 h-2 rounded-sm bg-blue-600" /> Senior (₹{item.senior}L)
                       </span>
                     </div>
                   ) : (
@@ -2712,21 +2403,31 @@ function InternshipTrackerView() {
                           </p>
                         )}
 
-                        {/* Quick Stage Move selector */}
+                        {/* Quick Stage Move buttons */}
                         <div className="pt-2 border-t flex items-center justify-between gap-1 text-[10px]">
                           <span className="text-muted-foreground flex items-center gap-1">
                             <Calendar className="h-3 w-3" /> {a.date}
                           </span>
-                          <select
-                            value={a.status}
-                            onChange={(e) => handleUpdateStatus(a.id, e.target.value as any)}
-                            className="text-[10px] font-bold h-6 px-1.5 rounded border border-input bg-muted/40 cursor-pointer"
-                          >
-                            <option value="Applied">Applied</option>
-                            <option value="Interviewing">Interviewing</option>
-                            <option value="Offer">Offer</option>
-                            <option value="Rejected">Rejected</option>
-                          </select>
+                          <div className="flex items-center gap-1">
+                            {stage !== "Offer" && (
+                              <button
+                                onClick={() => handleUpdateStatus(a.id, "Offer")}
+                                className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-bold hover:bg-emerald-500/20 cursor-pointer"
+                                title="Move to Offer"
+                              >
+                                → Offer
+                              </button>
+                            )}
+                            {stage === "Applied" && (
+                              <button
+                                onClick={() => handleUpdateStatus(a.id, "Interviewing")}
+                                className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 font-bold hover:bg-amber-500/20 cursor-pointer"
+                                title="Move to Interviewing"
+                              >
+                                → Interview
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </Card>
                     ))
@@ -4347,222 +4048,6 @@ const DETAILED_ROADMAPS: Record<
       },
     ],
   },
-  "Blockchain & Web3 Architect": {
-    targetRole: "Blockchain & Smart Contract Developer",
-    level: "Decentralized",
-    summary:
-      "Master Solidity, EVM architecture, Smart Contract security, Ethers.js, Hardhat, DeFi protocols, and decentralized app architectures.",
-    timeline: "4-6 Months",
-    salary: "₹10L - ₹32L / yr",
-    prerequisites: ["JavaScript/TypeScript", "Cryptography Basics"],
-    phases: [
-      {
-        phaseTitle: "Phase 1: Solidity & EVM Smart Contracts",
-        duration: "Weeks 1-6",
-        skills: ["Solidity", "Ethereum", "Smart Contracts"],
-        description:
-          "Learn Solidity syntax, EVM memory layout, state variables, modifiers, events, and OpenZeppelin security standards.",
-        milestones: [
-          "Deploy ERC-20 & ERC-721 Smart Contracts on Testnet",
-          "Pass Automated Smart Contract Unit Test Suite",
-        ],
-      },
-      {
-        phaseTitle: "Phase 2: DApp Development with Ethers.js & React",
-        duration: "Weeks 7-14",
-        skills: ["Ethers.js", "Web3.js", "React", "TypeScript"],
-        description:
-          "Integrate Web3 wallets (MetaMask, WalletConnect), read contract state, execute transactions, and handle gas estimation.",
-        milestones: [
-          "Build Full-Stack Decentralized Exchange (DEX) UI",
-          "Implement Real-Time Event Listening for On-Chain Logs",
-        ],
-      },
-      {
-        phaseTitle: "Phase 3: Smart Contract Security & DeFi Protocols",
-        duration: "Weeks 15-22",
-        skills: ["Solidity", "Smart Contracts", "Security"],
-        description:
-          "Audit contracts for reentrancy attacks, integer overflow, front-running vulnerabilities, and gas optimization techniques.",
-        milestones: [
-          "Conduct Security Audit Report on Vulnerable Protocol",
-          "Deploy Production DeFi Staking & Governance Vault",
-        ],
-      },
-    ],
-    projects: [
-      {
-        title: "Decentralized Token Exchange (DEX)",
-        tech: ["Solidity", "Ethers.js", "React", "Ethereum"],
-        desc: "Automated Market Maker (AMM) contract with liquidity pool provisioning and token swap interface.",
-      },
-      {
-        title: "NFT Marketplace & Royalty Engine",
-        tech: ["Solidity", "Smart Contracts", "Web3.js"],
-        desc: "Full NFT minting, listing, bidding, and royalty distribution protocol.",
-      },
-    ],
-  },
-  "AI Safety & Alignment Specialist": {
-    targetRole: "AI Safety & Alignment Engineer",
-    level: "Research & Safety",
-    summary:
-      "Master RLHF (Reinforcement Learning from Human Feedback), Mechanistic Interpretability, Red-Teaming, Prompt Injection Defense, and AI Governance.",
-    timeline: "5-7 Months",
-    salary: "₹15L - ₹40L+ / yr",
-    prerequisites: ["Python", "PyTorch", "LLM Fundamentals"],
-    phases: [
-      {
-        phaseTitle: "Phase 1: RLHF & Preference Modeling",
-        duration: "Weeks 1-8",
-        skills: ["RLHF", "Python", "PyTorch", "AI Safety"],
-        description:
-          "Learn Reward Model training, PPO optimization, Direct Preference Optimization (DPO), and helpfulness/harmlessness alignment datasets.",
-        milestones: [
-          "Train DPO Alignment Model on Open Source LLM Base",
-          "Evaluate Model Output Against Safety Tax Metrics",
-        ],
-      },
-      {
-        phaseTitle: "Phase 2: Red-Teaming & Jailbreak Defense",
-        duration: "Weeks 9-16",
-        skills: ["AI Safety", "Python", "Interpretability"],
-        description:
-          "Conduct adversarial prompt injection, jailbreak evaluations, toxicity filtering, and guardrail system design.",
-        milestones: [
-          "Build Automated Red-Teaming Evaluation Suite",
-          "Implement Input Firewall for LLM Security",
-        ],
-      },
-    ],
-    projects: [
-      {
-        title: "Automated LLM Red-Teaming & Firewall Toolkit",
-        tech: ["Python", "AI Safety", "PyTorch"],
-        desc: "Adversarial evaluation engine probing model safety, toxicity thresholds, and prompt injection vulnerabilities.",
-      },
-    ],
-  },
-  "Data Engineering & Pipeline Architect": {
-    targetRole: "Senior Data Engineer",
-    level: "High Throughput",
-    summary:
-      "Master Apache Spark, Kafka event streaming, Airflow orchestration, Snowflake data warehousing, dbt transformations, and PySpark ETL pipelines.",
-    timeline: "6-8 Months",
-    salary: "₹7L - ₹28L / yr",
-    prerequisites: ["Python", "Advanced SQL"],
-    phases: [
-      {
-        phaseTitle: "Phase 1: ETL Pipelines & Data Warehousing",
-        duration: "Weeks 1-8",
-        skills: ["Python", "SQL", "Snowflake", "dbt"],
-        description:
-          "Build batch ETL data pipelines, dimensional modeling (Star & Snowflake schemas), dbt transformations, and data quality testing.",
-        milestones: [
-          "Design Production Data Warehouse on Snowflake",
-          "Automate dbt Data Transformation Tests",
-        ],
-      },
-      {
-        phaseTitle: "Phase 2: Streaming Data & Orchestration",
-        duration: "Weeks 9-18",
-        skills: ["Kafka", "Apache Spark", "Airflow", "Python"],
-        description:
-          "Implement real-time Kafka event streaming pipelines, PySpark distributed data processing, and Airflow DAG orchestration.",
-        milestones: [
-          "Build Real-Time Streaming Analytics Pipeline with Kafka & Spark",
-          "Schedule Production DAG Workflow in Airflow",
-        ],
-      },
-    ],
-    projects: [
-      {
-        title: "Real-Time Financial Streaming Pipeline",
-        tech: ["Kafka", "Apache Spark", "Airflow", "Snowflake"],
-        desc: "High-throughput event streaming pipeline processing 10,000+ events/sec into a Snowflake warehouse.",
-      },
-    ],
-  },
-  "Embedded Systems & IoT Engineer": {
-    targetRole: "Embedded Software & IoT Developer",
-    level: "Hardware & Firmware",
-    summary:
-      "Master C/C++, FreeRTOS, Microcontroller programming (ESP32, STM32), MQTT protocols, sensor integration, and IoT cloud gateways.",
-    timeline: "5-7 Months",
-    salary: "₹5L - ₹22L / yr",
-    prerequisites: ["C Basics", "Electronics Fundamentals"],
-    phases: [
-      {
-        phaseTitle: "Phase 1: C/C++ Firmware & Microcontrollers",
-        duration: "Weeks 1-8",
-        skills: ["C/C++", "ESP32", "Raspberry Pi"],
-        description:
-          "Write bare-metal C firmware, configure GPIO, I2C, SPI, UART peripherals, interrupt service routines, and power optimization.",
-        milestones: [
-          "Flash Custom Firmware onto ESP32 Board",
-          "Read Multi-Sensor Array over I2C Protocol",
-        ],
-      },
-      {
-        phaseTitle: "Phase 2: RTOS & IoT Cloud Telemetry",
-        duration: "Weeks 9-16",
-        skills: ["RTOS", "MQTT", "C/C++"],
-        description:
-          "Learn FreeRTOS multitasking, semaphores, message queues, MQTT telemetry publishing over Wi-Fi/Cellular, and OTA updates.",
-        milestones: [
-          "Deploy Multithreaded FreeRTOS Task Manager",
-          "Connect IoT Node to AWS IoT Core Gateway",
-        ],
-      },
-    ],
-    projects: [
-      {
-        title: "Smart Environmental Sensor Telemetry Node",
-        tech: ["C/C++", "RTOS", "ESP32", "MQTT"],
-        desc: "Battery-optimized IoT sensor node publishing real-time telemetry over MQTT to cloud dashboards.",
-      },
-    ],
-  },
-  "QA & Automated Testing Engineer": {
-    targetRole: "Senior SDET / QA Automation Engineer",
-    level: "Quality First",
-    summary:
-      "Master Playwright, Cypress, API testing with Postman, CI/CD pipeline integration, end-to-end UI automation, and performance testing.",
-    timeline: "3-5 Months",
-    salary: "₹4L - ₹18L / yr",
-    prerequisites: ["JavaScript/TypeScript Basics"],
-    phases: [
-      {
-        phaseTitle: "Phase 1: E2E Automation with Playwright & Cypress",
-        duration: "Weeks 1-6",
-        skills: ["Playwright", "Cypress", "TypeScript"],
-        description:
-          "Learn Page Object Model (POM), cross-browser testing, network mocking, visual regression testing, and parallel test execution.",
-        milestones: [
-          "Build Playwright E2E Suite for SaaS App with 50+ Test Cases",
-          "Achieve 100% Automated Critical Path Coverage",
-        ],
-      },
-      {
-        phaseTitle: "Phase 2: API Automation & CI/CD Testing Pipeline",
-        duration: "Weeks 7-12",
-        skills: ["Selenium", "TypeScript", "CI/CD"],
-        description:
-          "Automate REST API testing, token authentication flows, load/stress testing, and integrate GitHub Actions test reporting.",
-        milestones: [
-          "Integrate Automated E2E Test Suite in GitHub Actions",
-          "Build Allure Test Execution Report Dashboard",
-        ],
-      },
-    ],
-    projects: [
-      {
-        title: "Enterprise Playwright E2E Test Framework",
-        tech: ["Playwright", "TypeScript", "CI/CD"],
-        desc: "Production-grade automated testing framework with Page Object Model, parallel execution, and Slack notifications.",
-      },
-    ],
-  },
 };
 
 function GuidesDocsView() {
@@ -4661,56 +4146,6 @@ function GuidesDocsView() {
       skills: ["Strategy", "Analytics", "UX Design", "Tech", "Leadership"],
       salary: "₹8L - ₹30L",
     },
-    {
-      title: "Blockchain & Web3 Architect",
-      category: "Strategy",
-      icon: Globe,
-      color: "bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400",
-      level: "Decentralized",
-      duration: "4-6 months",
-      skills: ["Solidity", "Ethereum", "Smart Contracts", "Ethers.js"],
-      salary: "₹10L - ₹32L",
-    },
-    {
-      title: "AI Safety & Alignment Specialist",
-      category: "AI & ML",
-      icon: Shield,
-      color: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400",
-      level: "Research & Safety",
-      duration: "5-7 months",
-      skills: ["RLHF", "AI Safety", "Python", "PyTorch"],
-      salary: "₹15L - ₹40L+",
-    },
-    {
-      title: "Data Engineering & Pipeline Architect",
-      category: "Cloud & DevOps",
-      icon: Database,
-      color: "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400",
-      level: "High Throughput",
-      duration: "6-8 months",
-      skills: ["Apache Spark", "Kafka", "Airflow", "Snowflake"],
-      salary: "₹7L - ₹28L",
-    },
-    {
-      title: "Embedded Systems & IoT Engineer",
-      category: "Cloud & DevOps",
-      icon: Cpu,
-      color: "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/40 dark:text-cyan-400",
-      level: "Hardware & Firmware",
-      duration: "5-7 months",
-      skills: ["C/C++", "RTOS", "Raspberry Pi", "ESP32"],
-      salary: "₹5L - ₹22L",
-    },
-    {
-      title: "QA & Automated Testing Engineer",
-      category: "Web Dev",
-      icon: CheckCircle2,
-      color: "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400",
-      level: "Quality First",
-      duration: "3-5 months",
-      skills: ["Playwright", "Cypress", "Selenium", "TypeScript"],
-      salary: "₹4L - ₹18L",
-    },
   ];
 
   const filteredGuides =
@@ -4721,10 +4156,10 @@ function GuidesDocsView() {
   const activeRoadmap = selectedKey ? DETAILED_ROADMAPS[selectedKey] : null;
 
   return (
-    <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+    <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-card rounded-2xl border shadow-sm shrink-0">
+          <div className="p-3 bg-card rounded-2xl border shadow-sm">
             <BookOpen className="h-6 w-6 text-primary" />
           </div>
           <div>
@@ -4735,8 +4170,8 @@ function GuidesDocsView() {
           </div>
         </div>
 
-        {/* Responsive Category Filters */}
-        <div className="flex items-center gap-1.5 flex-wrap max-w-full">
+        {/* Category Filters */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 max-w-full">
           {["All", "AI & ML", "Web Dev", "Cloud & DevOps", "Design", "Security", "Strategy"].map((cat) => (
             <button
               key={cat}
@@ -4754,59 +4189,53 @@ function GuidesDocsView() {
         </div>
       </div>
 
-      {/* Grid of Roadmap Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredGuides.map((guide, i) => (
           <motion.div
             key={i}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04 }}
+            transition={{ delay: i * 0.06 }}
           >
             <Card
               onClick={() => setSelectedKey(guide.title)}
-              className="rounded-2xl border shadow-sm p-5 space-y-4 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group flex flex-col justify-between h-full bg-card"
+              className="rounded-2xl border shadow-sm p-6 space-y-4 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group"
             >
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-xl ${guide.color} flex items-center justify-center group-hover:scale-110 transition-transform shrink-0`}
-                  >
-                    {React.createElement(guide.icon as any, { className: "w-5 h-5" })}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest truncate">
-                      {guide.level}
-                    </p>
-                    <h3 className="font-bold text-base group-hover:text-primary transition-colors truncate">
-                      {guide.title}
-                    </h3>
-                  </div>
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-xl ${guide.color} flex items-center justify-center group-hover:scale-110 transition-transform`}
+                >
+                  {React.createElement(guide.icon as any, { className: "w-5 h-5" })}
                 </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="p-2 bg-muted/60 rounded-lg text-center">
-                    <p className="text-[8px] font-bold text-muted-foreground uppercase">Timeline</p>
-                    <p className="text-xs font-bold">{guide.duration}</p>
-                  </div>
-                  <div className="p-2 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg text-center">
-                    <p className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">
-                      Salary
-                    </p>
-                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                      {guide.salary}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {guide.skills.map((s) => (
-                    <SkillBadge key={s} skill={s} variant="secondary" size="sm" />
-                  ))}
+                <div>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
+                    {guide.level}
+                  </p>
+                  <h3 className="font-bold text-base group-hover:text-primary transition-colors">
+                    {guide.title}
+                  </h3>
                 </div>
               </div>
-
-              <div className="pt-3 border-t text-xs font-bold text-primary flex items-center justify-end gap-1 group-hover:translate-x-1 transition-transform">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-2 bg-muted/60 rounded-lg text-center">
+                  <p className="text-[8px] font-bold text-muted-foreground uppercase">Timeline</p>
+                  <p className="text-xs font-bold">{guide.duration}</p>
+                </div>
+                <div className="p-2 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg text-center">
+                  <p className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">
+                    Salary
+                  </p>
+                  <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    {guide.salary}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {guide.skills.map((s) => (
+                  <SkillBadge key={s} skill={s} variant="secondary" size="sm" />
+                ))}
+              </div>
+              <div className="pt-2 text-xs font-bold text-primary flex items-center justify-end gap-1 group-hover:translate-x-1 transition-transform">
                 View Full Roadmap <ArrowRight className="h-3.5 w-3.5" />
               </div>
             </Card>

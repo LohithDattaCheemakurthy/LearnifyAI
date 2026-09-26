@@ -11,19 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerifyStudentRouteImport } from './routes/verify-student'
 import { Route as VerifiedCertificatesRouteImport } from './routes/verified-certificates'
-import { Route as TermsAndConditionsRouteImport } from './routes/terms-and-conditions'
 import { Route as TermsRouteImport } from './routes/terms'
-import { Route as SupportRouteImport } from './routes/support'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ShowcaseRouteImport } from './routes/showcase'
-import { Route as ShippingPolicyRouteImport } from './routes/shipping-policy'
-import { Route as ShippingAndExchangeRouteImport } from './routes/shipping-and-exchange'
 import { Route as RoadmapRouteImport } from './routes/roadmap'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
-import { Route as RazorpayTestRouteImport } from './routes/razorpay-test'
 import { Route as ProjectsRouteImport } from './routes/projects'
-import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as LoginRouteImport } from './routes/login'
@@ -33,12 +27,10 @@ import { Route as FaqRouteImport } from './routes/faq'
 import { Route as EventsRouteImport } from './routes/events'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as CreatorsRouteImport } from './routes/creators'
-import { Route as ContactUsRouteImport } from './routes/contact-us'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as CoachesRouteImport } from './routes/coaches'
 import { Route as CareersRouteImport } from './routes/careers'
-import { Route as CancellationAndRefundRouteImport } from './routes/cancellation-and-refund'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
@@ -52,13 +44,11 @@ import { Route as PSlugRouteImport } from './routes/p.$slug'
 import { Route as CourseProjectIdRouteImport } from './routes/course.$projectId'
 import { Route as CertificatesCodeRouteImport } from './routes/certificates.$code'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
-import { Route as ApiVerifyPaymentRouteImport } from './routes/api/verify-payment'
-import { Route as ApiCreateOrderRouteImport } from './routes/api/create-order'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AuthenticatedWorkspaceRouteImport } from './routes/_authenticated/workspace'
 import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
 import { Route as AuthenticatedSystemDesignRouteImport } from './routes/_authenticated/system-design'
-import { Route as AuthenticatedSupportChatRouteImport } from './routes/_authenticated/support-chat'
+import { Route as AuthenticatedSupportRouteImport } from './routes/_authenticated/support'
 import { Route as AuthenticatedSubmissionsRouteImport } from './routes/_authenticated/submissions'
 import { Route as AuthenticatedStudioRouteImport } from './routes/_authenticated/studio'
 import { Route as AuthenticatedStoreRouteImport } from './routes/_authenticated/store'
@@ -93,12 +83,9 @@ import { Route as AuthenticatedSystemDesignIndexRouteImport } from './routes/_au
 import { Route as AuthenticatedPlaygroundIndexRouteImport } from './routes/_authenticated/playground.index'
 import { Route as AuthenticatedCoursesIndexRouteImport } from './routes/_authenticated/courses.index'
 import { Route as VerifyInvoiceIdRouteImport } from './routes/verify.invoice.$id'
-import { Route as ApiWebhooksRazorpaySubscriptionRouteImport } from './routes/api/webhooks/razorpay-subscription'
-import { Route as ApiWebhooksRazorpayContributionRouteImport } from './routes/api/webhooks/razorpay-contribution'
 import { Route as ApiWebhooksCashfreeSubscriptionRouteImport } from './routes/api/webhooks/cashfree-subscription'
 import { Route as ApiWebhooksCashfreeRouteImport } from './routes/api/webhooks/cashfree'
 import { Route as ApiCronRetryCertEmailsRouteImport } from './routes/api/cron/retry-cert-emails'
-import { Route as ApiCronLeaderboardPrizesRouteImport } from './routes/api/cron/leaderboard-prizes'
 import { Route as ApiCronCheckSubscriptionsRouteImport } from './routes/api/cron/check-subscriptions'
 import { Route as ApiCronAutoMaintenanceRouteImport } from './routes/api/cron/auto-maintenance'
 import { Route as AuthenticatedSystemDesignTopicRouteImport } from './routes/_authenticated/system-design.$topic'
@@ -114,14 +101,12 @@ import { Route as AuthenticatedCreatorSubscribersRouteImport } from './routes/_a
 import { Route as AuthenticatedCreatorEarningsRouteImport } from './routes/_authenticated/creator.earnings'
 import { Route as AuthenticatedCreatorCommentsRouteImport } from './routes/_authenticated/creator.comments'
 import { Route as AuthenticatedCoursesSlugRouteImport } from './routes/_authenticated/courses.$slug'
-import { Route as AuthenticatedCourseBuilderCourseIdRouteImport } from './routes/_authenticated/course-builder.$courseId'
 import { Route as AuthenticatedCohortsIdRouteImport } from './routes/_authenticated/cohorts.$id'
 import { Route as AuthenticatedAdminVisualLearningRouteImport } from './routes/_authenticated/admin/visual-learning'
 import { Route as AuthenticatedAdminSystemHealthRouteImport } from './routes/_authenticated/admin.system-health'
 import { Route as AuthenticatedAdminSystemDesignRouteImport } from './routes/_authenticated/admin/system-design'
 import { Route as AuthenticatedAdminSubscriptionsRouteImport } from './routes/_authenticated/admin/subscriptions'
 import { Route as AuthenticatedAdminStoreRouteImport } from './routes/_authenticated/admin.store'
-import { Route as AuthenticatedAdminPrizesRouteImport } from './routes/_authenticated/admin.prizes'
 import { Route as AuthenticatedAdminMissingVideosRouteImport } from './routes/_authenticated/admin.missing-videos'
 import { Route as AuthenticatedAdminEnrichmentRunsRouteImport } from './routes/_authenticated/admin.enrichment-runs'
 import { Route as AuthenticatedAdminCoursesRouteImport } from './routes/_authenticated/admin.courses'
@@ -142,19 +127,9 @@ const VerifiedCertificatesRoute = VerifiedCertificatesRouteImport.update({
   path: '/verified-certificates',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TermsAndConditionsRoute = TermsAndConditionsRouteImport.update({
-  id: '/terms-and-conditions',
-  path: '/terms-and-conditions',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SupportRoute = SupportRouteImport.update({
-  id: '/support',
-  path: '/support',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -165,16 +140,6 @@ const SignupRoute = SignupRouteImport.update({
 const ShowcaseRoute = ShowcaseRouteImport.update({
   id: '/showcase',
   path: '/showcase',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ShippingPolicyRoute = ShippingPolicyRouteImport.update({
-  id: '/shipping-policy',
-  path: '/shipping-policy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ShippingAndExchangeRoute = ShippingAndExchangeRouteImport.update({
-  id: '/shipping-and-exchange',
-  path: '/shipping-and-exchange',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RoadmapRoute = RoadmapRouteImport.update({
@@ -192,19 +157,9 @@ const RefundPolicyRoute = RefundPolicyRouteImport.update({
   path: '/refund-policy',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RazorpayTestRoute = RazorpayTestRouteImport.update({
-  id: '/razorpay-test',
-  path: '/razorpay-test',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
-  id: '/privacy-policy',
-  path: '/privacy-policy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -252,11 +207,6 @@ const CreatorsRoute = CreatorsRouteImport.update({
   path: '/creators',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ContactUsRoute = ContactUsRouteImport.update({
-  id: '/contact-us',
-  path: '/contact-us',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
@@ -275,11 +225,6 @@ const CoachesRoute = CoachesRouteImport.update({
 const CareersRoute = CareersRouteImport.update({
   id: '/careers',
   path: '/careers',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CancellationAndRefundRoute = CancellationAndRefundRouteImport.update({
-  id: '/cancellation-and-refund',
-  path: '/cancellation-and-refund',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -346,16 +291,6 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
   path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiVerifyPaymentRoute = ApiVerifyPaymentRouteImport.update({
-  id: '/api/verify-payment',
-  path: '/api/verify-payment',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiCreateOrderRoute = ApiCreateOrderRouteImport.update({
-  id: '/api/create-order',
-  path: '/api/create-order',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
@@ -377,12 +312,11 @@ const AuthenticatedSystemDesignRoute =
     path: '/system-design',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedSupportChatRoute =
-  AuthenticatedSupportChatRouteImport.update({
-    id: '/support-chat',
-    path: '/support-chat',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+const AuthenticatedSupportRoute = AuthenticatedSupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedSubmissionsRoute =
   AuthenticatedSubmissionsRouteImport.update({
     id: '/submissions',
@@ -567,18 +501,6 @@ const VerifyInvoiceIdRoute = VerifyInvoiceIdRouteImport.update({
   path: '/verify/invoice/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiWebhooksRazorpaySubscriptionRoute =
-  ApiWebhooksRazorpaySubscriptionRouteImport.update({
-    id: '/api/webhooks/razorpay-subscription',
-    path: '/api/webhooks/razorpay-subscription',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiWebhooksRazorpayContributionRoute =
-  ApiWebhooksRazorpayContributionRouteImport.update({
-    id: '/api/webhooks/razorpay-contribution',
-    path: '/api/webhooks/razorpay-contribution',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiWebhooksCashfreeSubscriptionRoute =
   ApiWebhooksCashfreeSubscriptionRouteImport.update({
     id: '/api/webhooks/cashfree-subscription',
@@ -595,12 +517,6 @@ const ApiCronRetryCertEmailsRoute = ApiCronRetryCertEmailsRouteImport.update({
   path: '/api/cron/retry-cert-emails',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiCronLeaderboardPrizesRoute =
-  ApiCronLeaderboardPrizesRouteImport.update({
-    id: '/api/cron/leaderboard-prizes',
-    path: '/api/cron/leaderboard-prizes',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiCronCheckSubscriptionsRoute =
   ApiCronCheckSubscriptionsRouteImport.update({
     id: '/api/cron/check-subscriptions',
@@ -689,12 +605,6 @@ const AuthenticatedCoursesSlugRoute =
     path: '/courses/$slug',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedCourseBuilderCourseIdRoute =
-  AuthenticatedCourseBuilderCourseIdRouteImport.update({
-    id: '/course-builder/$courseId',
-    path: '/course-builder/$courseId',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const AuthenticatedCohortsIdRoute = AuthenticatedCohortsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -729,12 +639,6 @@ const AuthenticatedAdminStoreRoute = AuthenticatedAdminStoreRouteImport.update({
   path: '/store',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
-const AuthenticatedAdminPrizesRoute =
-  AuthenticatedAdminPrizesRouteImport.update({
-    id: '/prizes',
-    path: '/prizes',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
 const AuthenticatedAdminMissingVideosRoute =
   AuthenticatedAdminMissingVideosRouteImport.update({
     id: '/missing-videos',
@@ -793,12 +697,10 @@ const ApiPublicHooksRunRemindersRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/cancellation-and-refund': typeof CancellationAndRefundRoute
   '/careers': typeof CareersRoute
   '/coaches': typeof CoachesRoute
   '/community': typeof CommunityRoute
   '/contact': typeof ContactRoute
-  '/contact-us': typeof ContactUsRoute
   '/creators': typeof CreatorsRoute
   '/docs': typeof DocsRoute
   '/events': typeof EventsRoute
@@ -808,19 +710,13 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
-  '/privacy-policy': typeof PrivacyPolicyRoute
   '/projects': typeof ProjectsRoute
-  '/razorpay-test': typeof RazorpayTestRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/roadmap': typeof RoadmapRoute
-  '/shipping-and-exchange': typeof ShippingAndExchangeRoute
-  '/shipping-policy': typeof ShippingPolicyRoute
   '/showcase': typeof ShowcaseRoute
   '/signup': typeof SignupRoute
-  '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
-  '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/verified-certificates': typeof VerifiedCertificatesRoute
   '/verify-student': typeof VerifyStudentRoute
   '/achievements': typeof AuthenticatedAchievementsRoute
@@ -853,13 +749,11 @@ export interface FileRoutesByFullPath {
   '/store': typeof AuthenticatedStoreRoute
   '/studio': typeof AuthenticatedStudioRoute
   '/submissions': typeof AuthenticatedSubmissionsRoute
-  '/support-chat': typeof AuthenticatedSupportChatRoute
+  '/support': typeof AuthenticatedSupportRoute
   '/system-design': typeof AuthenticatedSystemDesignRouteWithChildren
   '/wallet': typeof AuthenticatedWalletRoute
   '/workspace': typeof AuthenticatedWorkspaceRoute
   '/api/chat': typeof ApiChatRoute
-  '/api/create-order': typeof ApiCreateOrderRoute
-  '/api/verify-payment': typeof ApiVerifyPaymentRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/certificates/$code': typeof CertificatesCodeRoute
   '/course/$projectId': typeof CourseProjectIdRoute
@@ -878,14 +772,12 @@ export interface FileRoutesByFullPath {
   '/admin/courses': typeof AuthenticatedAdminCoursesRoute
   '/admin/enrichment-runs': typeof AuthenticatedAdminEnrichmentRunsRoute
   '/admin/missing-videos': typeof AuthenticatedAdminMissingVideosRoute
-  '/admin/prizes': typeof AuthenticatedAdminPrizesRoute
   '/admin/store': typeof AuthenticatedAdminStoreRoute
   '/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
   '/admin/system-design': typeof AuthenticatedAdminSystemDesignRoute
   '/admin/system-health': typeof AuthenticatedAdminSystemHealthRoute
   '/admin/visual-learning': typeof AuthenticatedAdminVisualLearningRoute
   '/cohorts/$id': typeof AuthenticatedCohortsIdRoute
-  '/course-builder/$courseId': typeof AuthenticatedCourseBuilderCourseIdRoute
   '/courses/$slug': typeof AuthenticatedCoursesSlugRoute
   '/creator/comments': typeof AuthenticatedCreatorCommentsRoute
   '/creator/earnings': typeof AuthenticatedCreatorEarningsRoute
@@ -901,12 +793,9 @@ export interface FileRoutesByFullPath {
   '/system-design/$topic': typeof AuthenticatedSystemDesignTopicRoute
   '/api/cron/auto-maintenance': typeof ApiCronAutoMaintenanceRoute
   '/api/cron/check-subscriptions': typeof ApiCronCheckSubscriptionsRoute
-  '/api/cron/leaderboard-prizes': typeof ApiCronLeaderboardPrizesRoute
   '/api/cron/retry-cert-emails': typeof ApiCronRetryCertEmailsRoute
   '/api/webhooks/cashfree': typeof ApiWebhooksCashfreeRoute
   '/api/webhooks/cashfree-subscription': typeof ApiWebhooksCashfreeSubscriptionRoute
-  '/api/webhooks/razorpay-contribution': typeof ApiWebhooksRazorpayContributionRoute
-  '/api/webhooks/razorpay-subscription': typeof ApiWebhooksRazorpaySubscriptionRoute
   '/verify/invoice/$id': typeof VerifyInvoiceIdRoute
   '/courses/': typeof AuthenticatedCoursesIndexRoute
   '/playground/': typeof AuthenticatedPlaygroundIndexRoute
@@ -916,12 +805,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/cancellation-and-refund': typeof CancellationAndRefundRoute
   '/careers': typeof CareersRoute
   '/coaches': typeof CoachesRoute
   '/community': typeof CommunityRoute
   '/contact': typeof ContactRoute
-  '/contact-us': typeof ContactUsRoute
   '/creators': typeof CreatorsRoute
   '/docs': typeof DocsRoute
   '/events': typeof EventsRoute
@@ -931,19 +818,13 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
-  '/privacy-policy': typeof PrivacyPolicyRoute
   '/projects': typeof ProjectsRoute
-  '/razorpay-test': typeof RazorpayTestRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/roadmap': typeof RoadmapRoute
-  '/shipping-and-exchange': typeof ShippingAndExchangeRoute
-  '/shipping-policy': typeof ShippingPolicyRoute
   '/showcase': typeof ShowcaseRoute
   '/signup': typeof SignupRoute
-  '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
-  '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/verified-certificates': typeof VerifiedCertificatesRoute
   '/verify-student': typeof VerifyStudentRoute
   '/achievements': typeof AuthenticatedAchievementsRoute
@@ -975,12 +856,10 @@ export interface FileRoutesByTo {
   '/store': typeof AuthenticatedStoreRoute
   '/studio': typeof AuthenticatedStudioRoute
   '/submissions': typeof AuthenticatedSubmissionsRoute
-  '/support-chat': typeof AuthenticatedSupportChatRoute
+  '/support': typeof AuthenticatedSupportRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/workspace': typeof AuthenticatedWorkspaceRoute
   '/api/chat': typeof ApiChatRoute
-  '/api/create-order': typeof ApiCreateOrderRoute
-  '/api/verify-payment': typeof ApiVerifyPaymentRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/certificates/$code': typeof CertificatesCodeRoute
   '/course/$projectId': typeof CourseProjectIdRoute
@@ -999,14 +878,12 @@ export interface FileRoutesByTo {
   '/admin/courses': typeof AuthenticatedAdminCoursesRoute
   '/admin/enrichment-runs': typeof AuthenticatedAdminEnrichmentRunsRoute
   '/admin/missing-videos': typeof AuthenticatedAdminMissingVideosRoute
-  '/admin/prizes': typeof AuthenticatedAdminPrizesRoute
   '/admin/store': typeof AuthenticatedAdminStoreRoute
   '/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
   '/admin/system-design': typeof AuthenticatedAdminSystemDesignRoute
   '/admin/system-health': typeof AuthenticatedAdminSystemHealthRoute
   '/admin/visual-learning': typeof AuthenticatedAdminVisualLearningRoute
   '/cohorts/$id': typeof AuthenticatedCohortsIdRoute
-  '/course-builder/$courseId': typeof AuthenticatedCourseBuilderCourseIdRoute
   '/courses/$slug': typeof AuthenticatedCoursesSlugRoute
   '/creator/comments': typeof AuthenticatedCreatorCommentsRoute
   '/creator/earnings': typeof AuthenticatedCreatorEarningsRoute
@@ -1022,12 +899,9 @@ export interface FileRoutesByTo {
   '/system-design/$topic': typeof AuthenticatedSystemDesignTopicRoute
   '/api/cron/auto-maintenance': typeof ApiCronAutoMaintenanceRoute
   '/api/cron/check-subscriptions': typeof ApiCronCheckSubscriptionsRoute
-  '/api/cron/leaderboard-prizes': typeof ApiCronLeaderboardPrizesRoute
   '/api/cron/retry-cert-emails': typeof ApiCronRetryCertEmailsRoute
   '/api/webhooks/cashfree': typeof ApiWebhooksCashfreeRoute
   '/api/webhooks/cashfree-subscription': typeof ApiWebhooksCashfreeSubscriptionRoute
-  '/api/webhooks/razorpay-contribution': typeof ApiWebhooksRazorpayContributionRoute
-  '/api/webhooks/razorpay-subscription': typeof ApiWebhooksRazorpaySubscriptionRoute
   '/verify/invoice/$id': typeof VerifyInvoiceIdRoute
   '/courses': typeof AuthenticatedCoursesIndexRoute
   '/playground': typeof AuthenticatedPlaygroundIndexRoute
@@ -1039,12 +913,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/about': typeof AboutRoute
-  '/cancellation-and-refund': typeof CancellationAndRefundRoute
   '/careers': typeof CareersRoute
   '/coaches': typeof CoachesRoute
   '/community': typeof CommunityRoute
   '/contact': typeof ContactRoute
-  '/contact-us': typeof ContactUsRoute
   '/creators': typeof CreatorsRoute
   '/docs': typeof DocsRoute
   '/events': typeof EventsRoute
@@ -1054,19 +926,13 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
-  '/privacy-policy': typeof PrivacyPolicyRoute
   '/projects': typeof ProjectsRoute
-  '/razorpay-test': typeof RazorpayTestRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/roadmap': typeof RoadmapRoute
-  '/shipping-and-exchange': typeof ShippingAndExchangeRoute
-  '/shipping-policy': typeof ShippingPolicyRoute
   '/showcase': typeof ShowcaseRoute
   '/signup': typeof SignupRoute
-  '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
-  '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/verified-certificates': typeof VerifiedCertificatesRoute
   '/verify-student': typeof VerifyStudentRoute
   '/_authenticated/achievements': typeof AuthenticatedAchievementsRoute
@@ -1099,13 +965,11 @@ export interface FileRoutesById {
   '/_authenticated/store': typeof AuthenticatedStoreRoute
   '/_authenticated/studio': typeof AuthenticatedStudioRoute
   '/_authenticated/submissions': typeof AuthenticatedSubmissionsRoute
-  '/_authenticated/support-chat': typeof AuthenticatedSupportChatRoute
+  '/_authenticated/support': typeof AuthenticatedSupportRoute
   '/_authenticated/system-design': typeof AuthenticatedSystemDesignRouteWithChildren
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
   '/_authenticated/workspace': typeof AuthenticatedWorkspaceRoute
   '/api/chat': typeof ApiChatRoute
-  '/api/create-order': typeof ApiCreateOrderRoute
-  '/api/verify-payment': typeof ApiVerifyPaymentRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/certificates/$code': typeof CertificatesCodeRoute
   '/course/$projectId': typeof CourseProjectIdRoute
@@ -1124,14 +988,12 @@ export interface FileRoutesById {
   '/_authenticated/admin/courses': typeof AuthenticatedAdminCoursesRoute
   '/_authenticated/admin/enrichment-runs': typeof AuthenticatedAdminEnrichmentRunsRoute
   '/_authenticated/admin/missing-videos': typeof AuthenticatedAdminMissingVideosRoute
-  '/_authenticated/admin/prizes': typeof AuthenticatedAdminPrizesRoute
   '/_authenticated/admin/store': typeof AuthenticatedAdminStoreRoute
   '/_authenticated/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
   '/_authenticated/admin/system-design': typeof AuthenticatedAdminSystemDesignRoute
   '/_authenticated/admin/system-health': typeof AuthenticatedAdminSystemHealthRoute
   '/_authenticated/admin/visual-learning': typeof AuthenticatedAdminVisualLearningRoute
   '/_authenticated/cohorts/$id': typeof AuthenticatedCohortsIdRoute
-  '/_authenticated/course-builder/$courseId': typeof AuthenticatedCourseBuilderCourseIdRoute
   '/_authenticated/courses/$slug': typeof AuthenticatedCoursesSlugRoute
   '/_authenticated/creator/comments': typeof AuthenticatedCreatorCommentsRoute
   '/_authenticated/creator/earnings': typeof AuthenticatedCreatorEarningsRoute
@@ -1147,12 +1009,9 @@ export interface FileRoutesById {
   '/_authenticated/system-design/$topic': typeof AuthenticatedSystemDesignTopicRoute
   '/api/cron/auto-maintenance': typeof ApiCronAutoMaintenanceRoute
   '/api/cron/check-subscriptions': typeof ApiCronCheckSubscriptionsRoute
-  '/api/cron/leaderboard-prizes': typeof ApiCronLeaderboardPrizesRoute
   '/api/cron/retry-cert-emails': typeof ApiCronRetryCertEmailsRoute
   '/api/webhooks/cashfree': typeof ApiWebhooksCashfreeRoute
   '/api/webhooks/cashfree-subscription': typeof ApiWebhooksCashfreeSubscriptionRoute
-  '/api/webhooks/razorpay-contribution': typeof ApiWebhooksRazorpayContributionRoute
-  '/api/webhooks/razorpay-subscription': typeof ApiWebhooksRazorpaySubscriptionRoute
   '/verify/invoice/$id': typeof VerifyInvoiceIdRoute
   '/_authenticated/courses/': typeof AuthenticatedCoursesIndexRoute
   '/_authenticated/playground/': typeof AuthenticatedPlaygroundIndexRoute
@@ -1164,12 +1023,10 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
-    | '/cancellation-and-refund'
     | '/careers'
     | '/coaches'
     | '/community'
     | '/contact'
-    | '/contact-us'
     | '/creators'
     | '/docs'
     | '/events'
@@ -1179,19 +1036,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/pricing'
     | '/privacy'
-    | '/privacy-policy'
     | '/projects'
-    | '/razorpay-test'
     | '/refund-policy'
     | '/reset-password'
     | '/roadmap'
-    | '/shipping-and-exchange'
-    | '/shipping-policy'
     | '/showcase'
     | '/signup'
-    | '/support'
     | '/terms'
-    | '/terms-and-conditions'
     | '/verified-certificates'
     | '/verify-student'
     | '/achievements'
@@ -1224,13 +1075,11 @@ export interface FileRouteTypes {
     | '/store'
     | '/studio'
     | '/submissions'
-    | '/support-chat'
+    | '/support'
     | '/system-design'
     | '/wallet'
     | '/workspace'
     | '/api/chat'
-    | '/api/create-order'
-    | '/api/verify-payment'
     | '/blog/$slug'
     | '/certificates/$code'
     | '/course/$projectId'
@@ -1249,14 +1098,12 @@ export interface FileRouteTypes {
     | '/admin/courses'
     | '/admin/enrichment-runs'
     | '/admin/missing-videos'
-    | '/admin/prizes'
     | '/admin/store'
     | '/admin/subscriptions'
     | '/admin/system-design'
     | '/admin/system-health'
     | '/admin/visual-learning'
     | '/cohorts/$id'
-    | '/course-builder/$courseId'
     | '/courses/$slug'
     | '/creator/comments'
     | '/creator/earnings'
@@ -1272,12 +1119,9 @@ export interface FileRouteTypes {
     | '/system-design/$topic'
     | '/api/cron/auto-maintenance'
     | '/api/cron/check-subscriptions'
-    | '/api/cron/leaderboard-prizes'
     | '/api/cron/retry-cert-emails'
     | '/api/webhooks/cashfree'
     | '/api/webhooks/cashfree-subscription'
-    | '/api/webhooks/razorpay-contribution'
-    | '/api/webhooks/razorpay-subscription'
     | '/verify/invoice/$id'
     | '/courses/'
     | '/playground/'
@@ -1287,12 +1131,10 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
-    | '/cancellation-and-refund'
     | '/careers'
     | '/coaches'
     | '/community'
     | '/contact'
-    | '/contact-us'
     | '/creators'
     | '/docs'
     | '/events'
@@ -1302,19 +1144,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/pricing'
     | '/privacy'
-    | '/privacy-policy'
     | '/projects'
-    | '/razorpay-test'
     | '/refund-policy'
     | '/reset-password'
     | '/roadmap'
-    | '/shipping-and-exchange'
-    | '/shipping-policy'
     | '/showcase'
     | '/signup'
-    | '/support'
     | '/terms'
-    | '/terms-and-conditions'
     | '/verified-certificates'
     | '/verify-student'
     | '/achievements'
@@ -1346,12 +1182,10 @@ export interface FileRouteTypes {
     | '/store'
     | '/studio'
     | '/submissions'
-    | '/support-chat'
+    | '/support'
     | '/wallet'
     | '/workspace'
     | '/api/chat'
-    | '/api/create-order'
-    | '/api/verify-payment'
     | '/blog/$slug'
     | '/certificates/$code'
     | '/course/$projectId'
@@ -1370,14 +1204,12 @@ export interface FileRouteTypes {
     | '/admin/courses'
     | '/admin/enrichment-runs'
     | '/admin/missing-videos'
-    | '/admin/prizes'
     | '/admin/store'
     | '/admin/subscriptions'
     | '/admin/system-design'
     | '/admin/system-health'
     | '/admin/visual-learning'
     | '/cohorts/$id'
-    | '/course-builder/$courseId'
     | '/courses/$slug'
     | '/creator/comments'
     | '/creator/earnings'
@@ -1393,12 +1225,9 @@ export interface FileRouteTypes {
     | '/system-design/$topic'
     | '/api/cron/auto-maintenance'
     | '/api/cron/check-subscriptions'
-    | '/api/cron/leaderboard-prizes'
     | '/api/cron/retry-cert-emails'
     | '/api/webhooks/cashfree'
     | '/api/webhooks/cashfree-subscription'
-    | '/api/webhooks/razorpay-contribution'
-    | '/api/webhooks/razorpay-subscription'
     | '/verify/invoice/$id'
     | '/courses'
     | '/playground'
@@ -1409,12 +1238,10 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/about'
-    | '/cancellation-and-refund'
     | '/careers'
     | '/coaches'
     | '/community'
     | '/contact'
-    | '/contact-us'
     | '/creators'
     | '/docs'
     | '/events'
@@ -1424,19 +1251,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/pricing'
     | '/privacy'
-    | '/privacy-policy'
     | '/projects'
-    | '/razorpay-test'
     | '/refund-policy'
     | '/reset-password'
     | '/roadmap'
-    | '/shipping-and-exchange'
-    | '/shipping-policy'
     | '/showcase'
     | '/signup'
-    | '/support'
     | '/terms'
-    | '/terms-and-conditions'
     | '/verified-certificates'
     | '/verify-student'
     | '/_authenticated/achievements'
@@ -1469,13 +1290,11 @@ export interface FileRouteTypes {
     | '/_authenticated/store'
     | '/_authenticated/studio'
     | '/_authenticated/submissions'
-    | '/_authenticated/support-chat'
+    | '/_authenticated/support'
     | '/_authenticated/system-design'
     | '/_authenticated/wallet'
     | '/_authenticated/workspace'
     | '/api/chat'
-    | '/api/create-order'
-    | '/api/verify-payment'
     | '/blog/$slug'
     | '/certificates/$code'
     | '/course/$projectId'
@@ -1494,14 +1313,12 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/courses'
     | '/_authenticated/admin/enrichment-runs'
     | '/_authenticated/admin/missing-videos'
-    | '/_authenticated/admin/prizes'
     | '/_authenticated/admin/store'
     | '/_authenticated/admin/subscriptions'
     | '/_authenticated/admin/system-design'
     | '/_authenticated/admin/system-health'
     | '/_authenticated/admin/visual-learning'
     | '/_authenticated/cohorts/$id'
-    | '/_authenticated/course-builder/$courseId'
     | '/_authenticated/courses/$slug'
     | '/_authenticated/creator/comments'
     | '/_authenticated/creator/earnings'
@@ -1517,12 +1334,9 @@ export interface FileRouteTypes {
     | '/_authenticated/system-design/$topic'
     | '/api/cron/auto-maintenance'
     | '/api/cron/check-subscriptions'
-    | '/api/cron/leaderboard-prizes'
     | '/api/cron/retry-cert-emails'
     | '/api/webhooks/cashfree'
     | '/api/webhooks/cashfree-subscription'
-    | '/api/webhooks/razorpay-contribution'
-    | '/api/webhooks/razorpay-subscription'
     | '/verify/invoice/$id'
     | '/_authenticated/courses/'
     | '/_authenticated/playground/'
@@ -1534,12 +1348,10 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AboutRoute: typeof AboutRoute
-  CancellationAndRefundRoute: typeof CancellationAndRefundRoute
   CareersRoute: typeof CareersRoute
   CoachesRoute: typeof CoachesRoute
   CommunityRoute: typeof CommunityRoute
   ContactRoute: typeof ContactRoute
-  ContactUsRoute: typeof ContactUsRoute
   CreatorsRoute: typeof CreatorsRoute
   DocsRoute: typeof DocsRoute
   EventsRoute: typeof EventsRoute
@@ -1549,24 +1361,16 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
-  PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ProjectsRoute: typeof ProjectsRoute
-  RazorpayTestRoute: typeof RazorpayTestRoute
   RefundPolicyRoute: typeof RefundPolicyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   RoadmapRoute: typeof RoadmapRoute
-  ShippingAndExchangeRoute: typeof ShippingAndExchangeRoute
-  ShippingPolicyRoute: typeof ShippingPolicyRoute
   ShowcaseRoute: typeof ShowcaseRoute
   SignupRoute: typeof SignupRoute
-  SupportRoute: typeof SupportRoute
   TermsRoute: typeof TermsRoute
-  TermsAndConditionsRoute: typeof TermsAndConditionsRoute
   VerifiedCertificatesRoute: typeof VerifiedCertificatesRoute
   VerifyStudentRoute: typeof VerifyStudentRoute
   ApiChatRoute: typeof ApiChatRoute
-  ApiCreateOrderRoute: typeof ApiCreateOrderRoute
-  ApiVerifyPaymentRoute: typeof ApiVerifyPaymentRoute
   BlogSlugRoute: typeof BlogSlugRoute
   CertificatesCodeRoute: typeof CertificatesCodeRoute
   CourseProjectIdRoute: typeof CourseProjectIdRoute
@@ -1579,12 +1383,9 @@ export interface RootRouteChildren {
   BlogIndexRoute: typeof BlogIndexRoute
   ApiCronAutoMaintenanceRoute: typeof ApiCronAutoMaintenanceRoute
   ApiCronCheckSubscriptionsRoute: typeof ApiCronCheckSubscriptionsRoute
-  ApiCronLeaderboardPrizesRoute: typeof ApiCronLeaderboardPrizesRoute
   ApiCronRetryCertEmailsRoute: typeof ApiCronRetryCertEmailsRoute
   ApiWebhooksCashfreeRoute: typeof ApiWebhooksCashfreeRoute
   ApiWebhooksCashfreeSubscriptionRoute: typeof ApiWebhooksCashfreeSubscriptionRoute
-  ApiWebhooksRazorpayContributionRoute: typeof ApiWebhooksRazorpayContributionRoute
-  ApiWebhooksRazorpaySubscriptionRoute: typeof ApiWebhooksRazorpaySubscriptionRoute
   VerifyInvoiceIdRoute: typeof VerifyInvoiceIdRoute
   ApiPublicHooksRunRemindersRoute: typeof ApiPublicHooksRunRemindersRoute
 }
@@ -1605,25 +1406,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VerifiedCertificatesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/terms-and-conditions': {
-      id: '/terms-and-conditions'
-      path: '/terms-and-conditions'
-      fullPath: '/terms-and-conditions'
-      preLoaderRoute: typeof TermsAndConditionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/terms': {
       id: '/terms'
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/support': {
-      id: '/support'
-      path: '/support'
-      fullPath: '/support'
-      preLoaderRoute: typeof SupportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -1638,20 +1425,6 @@ declare module '@tanstack/react-router' {
       path: '/showcase'
       fullPath: '/showcase'
       preLoaderRoute: typeof ShowcaseRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/shipping-policy': {
-      id: '/shipping-policy'
-      path: '/shipping-policy'
-      fullPath: '/shipping-policy'
-      preLoaderRoute: typeof ShippingPolicyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/shipping-and-exchange': {
-      id: '/shipping-and-exchange'
-      path: '/shipping-and-exchange'
-      fullPath: '/shipping-and-exchange'
-      preLoaderRoute: typeof ShippingAndExchangeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/roadmap': {
@@ -1675,25 +1448,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RefundPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/razorpay-test': {
-      id: '/razorpay-test'
-      path: '/razorpay-test'
-      fullPath: '/razorpay-test'
-      preLoaderRoute: typeof RazorpayTestRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/projects': {
       id: '/projects'
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy-policy': {
-      id: '/privacy-policy'
-      path: '/privacy-policy'
-      fullPath: '/privacy-policy'
-      preLoaderRoute: typeof PrivacyPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -1759,13 +1518,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CreatorsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/contact-us': {
-      id: '/contact-us'
-      path: '/contact-us'
-      fullPath: '/contact-us'
-      preLoaderRoute: typeof ContactUsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/contact': {
       id: '/contact'
       path: '/contact'
@@ -1792,13 +1544,6 @@ declare module '@tanstack/react-router' {
       path: '/careers'
       fullPath: '/careers'
       preLoaderRoute: typeof CareersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cancellation-and-refund': {
-      id: '/cancellation-and-refund'
-      path: '/cancellation-and-refund'
-      fullPath: '/cancellation-and-refund'
-      preLoaderRoute: typeof CancellationAndRefundRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -1892,20 +1637,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/verify-payment': {
-      id: '/api/verify-payment'
-      path: '/api/verify-payment'
-      fullPath: '/api/verify-payment'
-      preLoaderRoute: typeof ApiVerifyPaymentRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/create-order': {
-      id: '/api/create-order'
-      path: '/api/create-order'
-      fullPath: '/api/create-order'
-      preLoaderRoute: typeof ApiCreateOrderRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
@@ -1934,11 +1665,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSystemDesignRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/support-chat': {
-      id: '/_authenticated/support-chat'
-      path: '/support-chat'
-      fullPath: '/support-chat'
-      preLoaderRoute: typeof AuthenticatedSupportChatRouteImport
+    '/_authenticated/support': {
+      id: '/_authenticated/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof AuthenticatedSupportRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/submissions': {
@@ -2179,20 +1910,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VerifyInvoiceIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/webhooks/razorpay-subscription': {
-      id: '/api/webhooks/razorpay-subscription'
-      path: '/api/webhooks/razorpay-subscription'
-      fullPath: '/api/webhooks/razorpay-subscription'
-      preLoaderRoute: typeof ApiWebhooksRazorpaySubscriptionRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/webhooks/razorpay-contribution': {
-      id: '/api/webhooks/razorpay-contribution'
-      path: '/api/webhooks/razorpay-contribution'
-      fullPath: '/api/webhooks/razorpay-contribution'
-      preLoaderRoute: typeof ApiWebhooksRazorpayContributionRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/webhooks/cashfree-subscription': {
       id: '/api/webhooks/cashfree-subscription'
       path: '/api/webhooks/cashfree-subscription'
@@ -2212,13 +1929,6 @@ declare module '@tanstack/react-router' {
       path: '/api/cron/retry-cert-emails'
       fullPath: '/api/cron/retry-cert-emails'
       preLoaderRoute: typeof ApiCronRetryCertEmailsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/cron/leaderboard-prizes': {
-      id: '/api/cron/leaderboard-prizes'
-      path: '/api/cron/leaderboard-prizes'
-      fullPath: '/api/cron/leaderboard-prizes'
-      preLoaderRoute: typeof ApiCronLeaderboardPrizesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/cron/check-subscriptions': {
@@ -2326,13 +2036,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCoursesSlugRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/course-builder/$courseId': {
-      id: '/_authenticated/course-builder/$courseId'
-      path: '/course-builder/$courseId'
-      fullPath: '/course-builder/$courseId'
-      preLoaderRoute: typeof AuthenticatedCourseBuilderCourseIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/cohorts/$id': {
       id: '/_authenticated/cohorts/$id'
       path: '/$id'
@@ -2373,13 +2076,6 @@ declare module '@tanstack/react-router' {
       path: '/store'
       fullPath: '/admin/store'
       preLoaderRoute: typeof AuthenticatedAdminStoreRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/prizes': {
-      id: '/_authenticated/admin/prizes'
-      path: '/prizes'
-      fullPath: '/admin/prizes'
-      preLoaderRoute: typeof AuthenticatedAdminPrizesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/missing-videos': {
@@ -2457,7 +2153,6 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminCoursesRoute: typeof AuthenticatedAdminCoursesRoute
   AuthenticatedAdminEnrichmentRunsRoute: typeof AuthenticatedAdminEnrichmentRunsRoute
   AuthenticatedAdminMissingVideosRoute: typeof AuthenticatedAdminMissingVideosRoute
-  AuthenticatedAdminPrizesRoute: typeof AuthenticatedAdminPrizesRoute
   AuthenticatedAdminStoreRoute: typeof AuthenticatedAdminStoreRoute
   AuthenticatedAdminSubscriptionsRoute: typeof AuthenticatedAdminSubscriptionsRoute
   AuthenticatedAdminSystemDesignRoute: typeof AuthenticatedAdminSystemDesignRoute
@@ -2474,7 +2169,6 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminCoursesRoute: AuthenticatedAdminCoursesRoute,
   AuthenticatedAdminEnrichmentRunsRoute: AuthenticatedAdminEnrichmentRunsRoute,
   AuthenticatedAdminMissingVideosRoute: AuthenticatedAdminMissingVideosRoute,
-  AuthenticatedAdminPrizesRoute: AuthenticatedAdminPrizesRoute,
   AuthenticatedAdminStoreRoute: AuthenticatedAdminStoreRoute,
   AuthenticatedAdminSubscriptionsRoute: AuthenticatedAdminSubscriptionsRoute,
   AuthenticatedAdminSystemDesignRoute: AuthenticatedAdminSystemDesignRoute,
@@ -2589,11 +2283,10 @@ interface AuthenticatedRouteChildren {
   AuthenticatedStoreRoute: typeof AuthenticatedStoreRoute
   AuthenticatedStudioRoute: typeof AuthenticatedStudioRoute
   AuthenticatedSubmissionsRoute: typeof AuthenticatedSubmissionsRoute
-  AuthenticatedSupportChatRoute: typeof AuthenticatedSupportChatRoute
+  AuthenticatedSupportRoute: typeof AuthenticatedSupportRoute
   AuthenticatedSystemDesignRoute: typeof AuthenticatedSystemDesignRouteWithChildren
   AuthenticatedWalletRoute: typeof AuthenticatedWalletRoute
   AuthenticatedWorkspaceRoute: typeof AuthenticatedWorkspaceRoute
-  AuthenticatedCourseBuilderCourseIdRoute: typeof AuthenticatedCourseBuilderCourseIdRoute
   AuthenticatedCoursesSlugRoute: typeof AuthenticatedCoursesSlugRoute
   AuthenticatedCreatorsIdRoute: typeof AuthenticatedCreatorsIdRoute
   AuthenticatedCoursesIndexRoute: typeof AuthenticatedCoursesIndexRoute
@@ -2630,12 +2323,10 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedStoreRoute: AuthenticatedStoreRoute,
   AuthenticatedStudioRoute: AuthenticatedStudioRoute,
   AuthenticatedSubmissionsRoute: AuthenticatedSubmissionsRoute,
-  AuthenticatedSupportChatRoute: AuthenticatedSupportChatRoute,
+  AuthenticatedSupportRoute: AuthenticatedSupportRoute,
   AuthenticatedSystemDesignRoute: AuthenticatedSystemDesignRouteWithChildren,
   AuthenticatedWalletRoute: AuthenticatedWalletRoute,
   AuthenticatedWorkspaceRoute: AuthenticatedWorkspaceRoute,
-  AuthenticatedCourseBuilderCourseIdRoute:
-    AuthenticatedCourseBuilderCourseIdRoute,
   AuthenticatedCoursesSlugRoute: AuthenticatedCoursesSlugRoute,
   AuthenticatedCreatorsIdRoute: AuthenticatedCreatorsIdRoute,
   AuthenticatedCoursesIndexRoute: AuthenticatedCoursesIndexRoute,
@@ -2649,12 +2340,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AboutRoute: AboutRoute,
-  CancellationAndRefundRoute: CancellationAndRefundRoute,
   CareersRoute: CareersRoute,
   CoachesRoute: CoachesRoute,
   CommunityRoute: CommunityRoute,
   ContactRoute: ContactRoute,
-  ContactUsRoute: ContactUsRoute,
   CreatorsRoute: CreatorsRoute,
   DocsRoute: DocsRoute,
   EventsRoute: EventsRoute,
@@ -2664,24 +2353,16 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
-  PrivacyPolicyRoute: PrivacyPolicyRoute,
   ProjectsRoute: ProjectsRoute,
-  RazorpayTestRoute: RazorpayTestRoute,
   RefundPolicyRoute: RefundPolicyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   RoadmapRoute: RoadmapRoute,
-  ShippingAndExchangeRoute: ShippingAndExchangeRoute,
-  ShippingPolicyRoute: ShippingPolicyRoute,
   ShowcaseRoute: ShowcaseRoute,
   SignupRoute: SignupRoute,
-  SupportRoute: SupportRoute,
   TermsRoute: TermsRoute,
-  TermsAndConditionsRoute: TermsAndConditionsRoute,
   VerifiedCertificatesRoute: VerifiedCertificatesRoute,
   VerifyStudentRoute: VerifyStudentRoute,
   ApiChatRoute: ApiChatRoute,
-  ApiCreateOrderRoute: ApiCreateOrderRoute,
-  ApiVerifyPaymentRoute: ApiVerifyPaymentRoute,
   BlogSlugRoute: BlogSlugRoute,
   CertificatesCodeRoute: CertificatesCodeRoute,
   CourseProjectIdRoute: CourseProjectIdRoute,
@@ -2694,12 +2375,9 @@ const rootRouteChildren: RootRouteChildren = {
   BlogIndexRoute: BlogIndexRoute,
   ApiCronAutoMaintenanceRoute: ApiCronAutoMaintenanceRoute,
   ApiCronCheckSubscriptionsRoute: ApiCronCheckSubscriptionsRoute,
-  ApiCronLeaderboardPrizesRoute: ApiCronLeaderboardPrizesRoute,
   ApiCronRetryCertEmailsRoute: ApiCronRetryCertEmailsRoute,
   ApiWebhooksCashfreeRoute: ApiWebhooksCashfreeRoute,
   ApiWebhooksCashfreeSubscriptionRoute: ApiWebhooksCashfreeSubscriptionRoute,
-  ApiWebhooksRazorpayContributionRoute: ApiWebhooksRazorpayContributionRoute,
-  ApiWebhooksRazorpaySubscriptionRoute: ApiWebhooksRazorpaySubscriptionRoute,
   VerifyInvoiceIdRoute: VerifyInvoiceIdRoute,
   ApiPublicHooksRunRemindersRoute: ApiPublicHooksRunRemindersRoute,
 }

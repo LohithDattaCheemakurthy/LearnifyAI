@@ -14,7 +14,6 @@ import { StudentJourney } from "@/components/interactive/StudentJourney";
 import { MagnificationDock } from "@/components/interactive/MagnificationDock";
 import { PricingComparisonTable } from "@/components/interactive/PricingComparisonTable";
 import { SavingsCalculator } from "@/components/interactive/SavingsCalculator";
-import { useGlobalCurrency } from "@/lib/currency";
 import { usePublicSection } from "@/hooks/use-wcms-public";
 import {
   Check,
@@ -54,7 +53,12 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useServerFn } from "@tanstack/react-start";
-import { createSubscription, cancelSubscription } from "@/lib/subscription.functions";
+import {
+  initiateCheckout,
+  verifyClientPayment,
+  cancelUserSubscription,
+} from "@/lib/payments/payment.functions";
+import { ContextualLegalNotice } from "@/components/legal/ContextualLegalNotice";
 
 export const Route = createFileRoute("/pricing")({
   validateSearch: (s: Record<string, unknown>): { subscribe?: string; coupon?: string } => ({
@@ -63,36 +67,19 @@ export const Route = createFileRoute("/pricing")({
   }),
   head: () => ({
     meta: [
-      { title: "Pricing & Plans — Learnify AI | Affordable Learning & Career OS" },
+      { title: "Pricing — Learnify AI" },
       {
         name: "description",
         content:
-          "Transparent pricing for Learnify AI. Access interactive AI courses, verifiable certificates, AI resume builder, career coaching, and smart tutoring. Start free.",
+          "AI-Powered Learning, Career Growth, Certificates, Resume Building, Interview Preparation and Career Coaching — All in One Platform.",
       },
-      {
-        name: "keywords",
-        content:
-          "Learnify AI pricing, AI learning subscription, coding courses India, Learnify cost, career pro plan",
-      },
-      { property: "og:type", content: "website" },
-      { property: "og:title", content: "Pricing & Plans — Learnify AI" },
+      { property: "og:title", content: "Pricing — Learnify AI" },
       {
         property: "og:description",
         content:
           "Simple, transparent pricing. Start free, upgrade when you're ready. 10,000+ learners trust Learnify AI.",
       },
-      { property: "og:url", content: "https://www.learnifyai.in/pricing" },
-      { property: "og:image", content: "https://www.learnifyai.in/logo.png" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Pricing & Plans — Learnify AI" },
-      {
-        name: "twitter:description",
-        content:
-          "Simple, transparent pricing. Start free, upgrade when you're ready. 10,000+ learners trust Learnify AI.",
-      },
-      { name: "robots", content: "index, follow" },
     ],
-    links: [{ rel: "canonical", href: "https://www.learnifyai.in/pricing" }],
   }),
   component: PricingPage,
 });
@@ -114,35 +101,72 @@ type Plan = {
   max_courses: number;
   cashfree_plan_id: string | null;
   yearly_price?: number;
+  is_custom_pricing?: boolean;
 };
 
-const PLAN_ICONS = [Zap, Rocket, Briefcase, Users];
+const loadRazorpay = () =>
+  new Promise<boolean>((resolve) => {
+    if (typeof window === "undefined") return resolve(false);
+    if ((window as any).Razorpay) return resolve(true);
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+
+const PLAN_ICONS = [Zap, GraduationCap, Rocket, Briefcase, Users];
 
 const DEFAULT_TIERS: Plan[] = [
   {
     id: "default-free",
     name: "Free",
     price_label: "Free",
-    description: "All free courses, limited daily AI credits, community access. Download certificates for ₹49 each.",
+    description: "Access all free courses, core AI learning tools, and community discussions.",
     features: [
-      "All free courses (11+ courses)",
-      "Limited daily AI credits",
-      "Community access",
-      "Basic progress tracking",
-      "Certificates — ₹49 each",
+      "Access to all Free courses",
+      "100 AI credits / month",
+      "Community & study group access",
+      "Interactive code playgrounds",
+      "Basic progress & quiz tracking",
+      "Course notes & lesson summaries",
       "Email support",
-      "500 AI credits / month",
-      "Course notes & summaries",
-      "Basic quiz access",
     ],
-    cta_label: "Get started free",
+    cta_label: "Get Started Free",
     cta_to: "/signup",
     highlighted: false,
     price_inr: 0,
     interval: null,
     badge: null,
     color: "#2563EB",
-    ai_credits_monthly: 500,
+    ai_credits_monthly: 100,
+    max_courses: 3,
+    cashfree_plan_id: null,
+  },
+  {
+    id: "default-student",
+    name: "Student",
+    price_label: "₹159",
+    description: "Exclusive academic pricing for verified college and university students.",
+    features: [
+      "Access to all Free & Student courses",
+      "10,000 AI credits / month",
+      "Academic verification badge",
+      "AI Tutor & dynamic study summaries",
+      "Resume Builder with student templates",
+      "ATS Compatibility scan",
+      "Practice Mock Interviews",
+      "Verified course completion certificates",
+      "Priority email support",
+    ],
+    cta_label: "Verify & Subscribe",
+    cta_to: "/verify-student",
+    highlighted: false,
+    price_inr: 159,
+    interval: "month",
+    badge: "Academic",
+    color: "#3B82F6",
+    ai_credits_monthly: 10000,
     max_courses: -1,
     cashfree_plan_id: null,
   },
@@ -150,26 +174,22 @@ const DEFAULT_TIERS: Plan[] = [
     id: "default-pro",
     name: "Pro",
     price_label: "₹199",
-    description: "For serious learners who want to master standard designs and basic career tools.",
+    description: "For serious learners who want to master modern tech stacks and core career tools.",
     features: [
-      "Access to standard design templates",
-      "Advanced AI tutor",
-      "10,000 AI credits/month",
-      "Free certificates — all courses",
-      "Resume Builder",
-      "ATS Checker",
-      "AI Career Coach",
-      "Mock Interviews",
-      "Learning Roadmaps",
-      "Download resources",
-      "Community challenges",
+      "Access to all Standard courses & paths",
+      "10,000 AI credits / month",
+      "Interactive DOM Blueprints & labs",
+      "24/7 AI Tutor with code analysis",
+      "Resume Builder & ATS Scoring",
+      "AI Career Coach & Mock Interviews",
+      "Verifiable digital certificates",
+      "Community discussion & challenges",
       "Priority support",
     ],
     cta_label: "Start Pro",
     cta_to: "/signup?plan=pro",
     highlighted: true,
     price_inr: 199,
-    yearly_price: 1670,
     interval: "month",
     badge: "Most Popular",
     color: "#6366F1",
@@ -181,36 +201,23 @@ const DEFAULT_TIERS: Plan[] = [
     id: "default-career-pro",
     name: "Career Pro",
     price_label: "₹499",
-    description:
-      "Job-seekers — everything in Pro + Resume / ATS / Interview Prep / Career Roadmap, verified certificates included.",
+    description: "Job-seekers — everything in Pro plus 11-in-1 Career Studio suite & 25,000 AI credits.",
     features: [
-      "Everything in Pro",
-      "All Premium Design Templates",
-      "Template Mastery Studio (New)",
-      "Interactive DOM Blueprints",
-      "Resume Builder",
-      "ATS Checker",
-      "Interview Prep",
-      "Career Roadmap",
-      "Verified certificates included",
-      "Custom certificate templates",
-      "Portfolio Builder",
-      "LinkedIn Optimizer",
-      "Internship Tracker",
-      "Career Analytics",
-      "Interview recording & playback",
-      "Advanced ATS optimization",
-      "Skill gap analysis",
-      "Project recommendations",
-      "Lifetime certificate access",
-      "Priority support",
+      "Everything in Pro included",
       "25,000 AI credits / month",
+      "11-in-1 Career Studio suite",
+      "AI Mock Interview Simulator with recording & feedback",
+      "Full Resume Builder with LaTeX/PDF export & ATS Scoring",
+      "Portfolio Builder & LinkedIn Profile Optimizer",
+      "Skill gap analysis & customized project roadmaps",
+      "Template Mastery Studio & premium project designs",
+      "Internship & job application tracker",
+      "VIP 1-on-1 priority support",
     ],
     cta_label: "Become Job Ready",
     cta_to: "/signup?plan=career-pro",
     highlighted: false,
     price_inr: 499,
-    yearly_price: 4190,
     interval: "month",
     badge: "Best Value",
     color: "#8B5CF6",
@@ -224,34 +231,25 @@ const DEFAULT_TIERS: Plan[] = [
     price_label: "Custom",
     description: "Colleges & companies — seats, SSO, admin reporting, custom branding.",
     features: [
-      "Everything in Career Pro",
-      "Seats",
-      "SSO + RBAC",
-      "Admin reporting",
-      "Custom branding",
-      "Admin dashboard",
-      "Team management",
-      "Bulk enrollment",
-      "Attendance tracking",
-      "Batch management",
-      "White label",
-      "Custom domain",
-      "Department analytics",
-      "Certificate automation",
-      "API access",
-      "Dedicated support",
-      "Custom AI credits",
+      "Custom seat volume & bulk student enrollment",
+      "SSO (SAML, Okta, Google Workspace) & RBAC",
+      "Institutional admin reporting & attendance tracking",
+      "Custom white-label branding & custom domain",
+      "Department-level analytics & completion reports",
+      "Automated bulk certificate issuance via API",
+      "Custom AI credit pool & model routing",
+      "Dedicated account manager & SLA guarantee",
     ],
-    cta_label: "Book Demo",
-    cta_to: "/contact",
+    cta_label: "Contact Sales",
+    cta_to: "/contact?inquiry=enterprise",
     highlighted: false,
     price_inr: 0,
-    yearly_price: 0,
     interval: null,
     badge: null,
     color: "#7c3aed",
     ai_credits_monthly: 0,
     max_courses: -1,
+    is_custom_pricing: true,
     cashfree_plan_id: null,
   },
 ];
@@ -344,8 +342,8 @@ const FAQ_ITEMS: { q: string; a: string; category: string }[] = [
     category: "Features",
   },
   {
-    q: "Can I get a refund?",
-    a: "We offer a 30-day money-back guarantee on all paid plans. If you're not satisfied, contact us within 30 days for a full refund.",
+    q: "What is your refund policy?",
+    a: "Digital access and AI credits are provisioned immediately upon purchase. Routine refunds for change-of-mind purchases are not provided, but we review extraordinary issues (duplicate charges or system failure) via our fair exception review process.",
     category: "Billing",
   },
   {
@@ -354,8 +352,8 @@ const FAQ_ITEMS: { q: string; a: string; category: string }[] = [
     category: "Plans",
   },
   {
-    q: "Is there a free trial?",
-    a: "Yes! All paid plans come with a 30-day money-back guarantee. No credit card required for the Free plan — ever.",
+    q: "Is there a free tier?",
+    a: "Yes! Our Free tier provides 100 AI credits monthly and access to free courses without requiring any payment method.",
     category: "Billing",
   },
   {
@@ -370,12 +368,12 @@ const FAQ_ITEMS: { q: string; a: string; category: string }[] = [
   },
   {
     q: "Do you offer student discounts?",
-    a: "Yes! We offer special pricing for verified students. Contact us with your student ID for exclusive discounts.",
+    a: "Yes! Verified students receive academic pricing with 20% savings. Submit verification with your college email.",
     category: "Students",
   },
   {
     q: "Is my payment information secure?",
-    a: "Absolutely. All payments are processed securely through Razorpay and Cashfree, which are PCI-DSS compliant payment gateways. We never store your card details.",
+    a: "Absolutely. Payments are processed securely through Razorpay (primary) and Cashfree (secondary), PCI-DSS certified payment gateways. We never store your card or UPI credentials.",
     category: "Billing",
   },
   {
@@ -387,7 +385,7 @@ const FAQ_ITEMS: { q: string; a: string; category: string }[] = [
 
 const TRUST_ITEMS = [
   { icon: Lock, label: "Secure Payments", color: "#2563EB" },
-  { icon: Shield, label: "30-Day Money Back", color: "#10B981" },
+  { icon: Shield, label: "Verified Protection", color: "#10B981" },
   { icon: Zap, label: "Instant Activation", color: "#F59E0B" },
   { icon: Headphones, label: "Human Support", color: "#8B5CF6" },
   { icon: IndianRupee, label: "Made For India", color: "#EC4899" },
@@ -445,26 +443,21 @@ function PricingPage() {
     cmsFaqItems.forEach((item: any) => (item.category ? cats.add(item.category) : null));
     return Array.from(cats);
   }, [cmsFaqItems]);
-  const doSubscribe = useServerFn(createSubscription);
-  const doCancel = useServerFn(cancelSubscription);
+  const doInitiateCheckout = useServerFn(initiateCheckout);
+  const doVerifyPayment = useServerFn(verifyClientPayment);
+  const doCancel = useServerFn(cancelUserSubscription);
+
   useEffect(() => {
     setOrigin(window.location.origin);
   }, []);
 
   useEffect(() => {
     if (subscribe === "ok") {
-      toast.success("Subscription successful! Welcome aboard.");
+      toast.success("Subscription verified and active! Welcome to Learnify AI.");
       navigate({ to: "/pricing", search: { subscribe: undefined }, replace: true });
-      qc.invalidateQueries({ queryKey: ["user-subscription"] });
+      qc.invalidateQueries({ queryKey: ["my-subscription"] });
     }
   }, [subscribe]);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setLearnerCount((p) => p + Math.floor(Math.random() * 3) + 1);
-    }, 8000);
-    return () => clearInterval(timer);
-  }, []);
 
   const {
     data: tiers,
@@ -538,114 +531,87 @@ function PricingPage() {
     }
     setLoadingPlan(planId);
     try {
-      // Ensure plan exists in DB (default plans may not be seeded)
-      const { data: existingPlan } = await supabase
-        .from("pricing_plans")
-        .select("id")
-        .eq("id", planId)
-        .maybeSingle();
-      if (!existingPlan) {
-        const def = DEFAULT_TIERS.find((d) => d.id === planId);
-        if (def) {
-          const { id: _, ...defData } = def;
-          const { error: upsertErr } = await supabase
-            .from("pricing_plans")
-            .upsert({ id: planId, ...defData, updated_at: new Date().toISOString() } as any, {
-              onConflict: "id",
-            });
-          if (upsertErr) throw new Error(upsertErr.message);
-        }
-      }
-      const sub = await doSubscribe({
-        data: { planId, couponCode: couponCode.trim() || undefined },
+      const checkout = await doInitiateCheckout({
+        data: {
+          planId,
+          provider: "razorpay",
+          couponCode: couponCode.trim() || undefined,
+          billingCycle,
+        },
       });
-      if (sub.free) {
-        toast.success("Free plan activated! Welcome to Learnify AI.");
-        qc.invalidateQueries({ queryKey: ["my-subscription"] });
-      } else if (sub.use_razorpay && sub.short_url) {
-        // Redirect to Razorpay hosted subscription page (native recurring billing)
-        toast.info("Redirecting to Razorpay to complete subscription setup…");
-        // Brief delay so user sees the toast
-        await new Promise((r) => setTimeout(r, 800));
-        window.location.href = sub.short_url;
-      } else if (sub.use_razorpay && (sub as any).order_id) {
-        // Fallback: one-time order checkout modal (legacy path)
-        const legacySub = sub as any;
-        const loadRzpScript = () =>
-          new Promise<boolean>((resolve) => {
-            if ((window as any).Razorpay) return resolve(true);
-            const s = document.createElement("script");
-            s.src = "https://checkout.razorpay.com/v1/checkout.js";
-            s.async = true;
-            s.onload = () => resolve(true);
-            s.onerror = () => resolve(false);
-            document.body.appendChild(s);
-          });
 
-        const loaded = await loadRzpScript();
-        if (!loaded) {
-          toast.error("Razorpay SDK failed to load. Please check your connection.");
+      if (checkout.free) {
+        toast.success("Free plan activated! 100 monthly AI credits ready.");
+        qc.invalidateQueries({ queryKey: ["my-subscription"] });
+        return;
+      }
+
+      if (checkout.isEnterprise) {
+        navigate({ to: "/contact", search: { inquiry: "enterprise" } as any });
+        return;
+      }
+
+      if (checkout.provider === "razorpay" && checkout.keyId && checkout.orderId) {
+        const scriptLoaded = await loadRazorpay();
+        if (!scriptLoaded) {
+          toast.error("Unable to load Razorpay payment SDK. Please refresh or try again.");
           return;
         }
 
-        const rzp = new (window as any).Razorpay({
-          key: legacySub.key_id,
-          amount: Math.round(legacySub.amount_inr * 100),
+        const options = {
+          key: checkout.keyId,
+          amount: Math.round(checkout.amount * 100),
           currency: "INR",
           name: "Learnify AI",
-          description: "Plan Subscription",
-          order_id: legacySub.order_id,
-          prefill: {
-            name: (user?.user_metadata?.full_name as string) || "",
-            email: user?.email || "",
-          },
-          theme: { color: "#6366F1" },
-          handler: async (response: any) => {
-            const verifyRes = await fetch("/api/verify-payment", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_signature: response.razorpay_signature,
-                amount_inr: sub.amount_inr,
-              }),
-            });
-            if (verifyRes.ok) {
-              toast.success("Payment verified! Subscription activated.");
-              qc.invalidateQueries({ queryKey: ["my-subscription"] });
-              navigate({ to: "/dashboard" });
-            } else {
-              toast.error("Payment verification failed. Contact support.");
+          description: `${checkout.notes?.planName || "Plan"} Subscription`,
+          order_id: checkout.orderId,
+          prefill: checkout.prefill,
+          theme: { color: "#6366f1" },
+          handler: async function (response: any) {
+            try {
+              setLoadingPlan(planId);
+              // Server-side verification & atomic activation (Invariant 1, 2, 16)
+              const verified = await doVerifyPayment({
+                data: {
+                  provider: "razorpay",
+                  orderId: checkout.orderId!,
+                  paymentId: response.razorpay_payment_id,
+                  signature: response.razorpay_signature,
+                  planId,
+                  billingCycle,
+                  amountInr: checkout.amount,
+                },
+              });
+              if (verified.success) {
+                toast.success("Payment verified! Subscription active.");
+                qc.invalidateQueries({ queryKey: ["my-subscription"] });
+                navigate({ to: "/pricing", search: { subscribe: "ok" } as any });
+              } else {
+                toast.error(verified.message || "Payment verification incomplete.");
+              }
+            } catch (err: any) {
+              toast.error(err?.message || "Failed to verify payment with server.");
+            } finally {
+              setLoadingPlan(null);
             }
           },
-        });
+          modal: {
+            ondismiss: function () {
+              setLoadingPlan(null);
+              toast.info("Checkout dismissed. You can retry anytime.");
+            },
+          },
+        };
+        const rzp = new (window as any).Razorpay(options);
         rzp.open();
-      } else if (sub.auth_link) {
-        window.location.href = sub.auth_link;
+      } else if (checkout.checkoutUrl) {
+        window.location.href = checkout.checkoutUrl;
       } else {
-        toast.success("Subscription created! Check your dashboard.");
+        toast.success("Subscription requested. Check your billing dashboard.");
         qc.invalidateQueries({ queryKey: ["my-subscription"] });
       }
     } catch (e: any) {
-      const msg = e?.message || "Subscription failed";
-      if (
-        msg.toLowerCase().includes("whitelis") ||
-        msg.toLowerCase().includes("not enabled or approved")
-      ) {
-        toast.error("Cashfree Domain Approval Needed", {
-          description:
-            "Domain 'https://www.learnifyai.in/' must be whitelisted in Cashfree Merchant Dashboard > Developers > Whitelisting.",
-          action: {
-            label: "Open Cashfree",
-            onClick: () =>
-              window.open("https://merchant.cashfree.com/merchants/pg/whitelisting", "_blank"),
-          },
-          duration: 10000,
-        });
-      } else {
-        toast.error(msg);
-      }
+      toast.error(e?.message || "Checkout failed");
     } finally {
       setLoadingPlan(null);
     }
@@ -653,8 +619,8 @@ function PricingPage() {
 
   const handleCancel = async () => {
     try {
-      await doCancel({ data: {} });
-      toast.success("Subscription cancelled");
+      const res = await doCancel({ data: {} });
+      toast.success(res.message || "Subscription cancellation scheduled.");
       qc.invalidateQueries({ queryKey: ["my-subscription"] });
     } catch (e: any) {
       toast.error(e?.message || "Cancel failed");
@@ -980,35 +946,40 @@ function PricingPage() {
           ) : !tiers || tiers.length === 0 ? (
             <p className="text-center text-muted-foreground py-12">Pricing coming soon.</p>
           ) : (
-            <div
-              className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch overflow-x-auto snap-x snap-mandatory md:overflow-visible pb-4 md:pb-0 scrollbar-none"
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-            >
-              {tiers.map((t, idx) => {
-                const isCurrent = activePlanId === t.id;
-                const isFree = t.price_inr <= 0 && !t.interval;
-                const hasPrice = t.price_inr > 0;
-                const accentColor = t.color || "#7c3aed";
-                const isPopular = t.highlighted;
+            <>
+              <div
+                className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch overflow-x-auto snap-x snap-mandatory md:overflow-visible pb-4 md:pb-0 scrollbar-none"
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              >
+                {tiers.map((t, idx) => {
+                  const isCurrent = activePlanId === t.id;
+                  const isFree = t.price_inr <= 0 && !t.interval;
+                  const hasPrice = t.price_inr > 0;
+                  const accentColor = t.color || "#7c3aed";
+                  const isPopular = t.highlighted;
 
-                return (
-                  <PricingCard
-                    key={t.id}
-                    plan={t}
-                    idx={idx}
-                    isCurrent={isCurrent}
-                    isFree={isFree}
-                    hasPrice={hasPrice}
-                    accentColor={accentColor}
-                    isPopular={isPopular}
-                    billingCycle={billingCycle}
-                    loadingPlan={loadingPlan}
-                    onSubscribe={handleSubscribe}
-                    onCancel={handleCancel}
-                  />
-                );
-              })}
-            </div>
+                  return (
+                    <PricingCard
+                      key={t.id}
+                      plan={t}
+                      idx={idx}
+                      isCurrent={isCurrent}
+                      isFree={isFree}
+                      hasPrice={hasPrice}
+                      accentColor={accentColor}
+                      isPopular={isPopular}
+                      billingCycle={billingCycle}
+                      loadingPlan={loadingPlan}
+                      onSubscribe={handleSubscribe}
+                      onCancel={handleCancel}
+                    />
+                  );
+                })}
+              </div>
+              <div className="mt-8 max-w-xl mx-auto text-center">
+                <ContextualLegalNotice context="checkout" />
+              </div>
+            </>
           )}
         </section>
 
@@ -1544,18 +1515,20 @@ function PricingCard({
   onSubscribe: (id: string) => void;
   onCancel: () => void;
 }) {
-  const { format } = useGlobalCurrency();
   const yearlyPrice = plan.yearly_price || Math.round(plan.price_inr * 12 * 0.7);
   const monthlyEquiv = hasPrice && yearlyPrice > 0 ? Math.round(yearlyPrice / 12) : 0;
   const annualSaving = hasPrice ? Math.round(plan.price_inr * 12 - yearlyPrice) : 0;
   const monthlySavings = hasPrice ? Math.round((plan.price_inr * 12 - yearlyPrice) / 12) : 0;
-  const displayPrice = isFree
-    ? "Free"
-    : !hasPrice
-    ? plan.price_label
+  const isEnterprise =
+    plan.name.toLowerCase() === "enterprise" ||
+    Boolean(plan.is_custom_pricing) ||
+    plan.price_label.toLowerCase() === "custom";
+
+  const displayPrice = isEnterprise
+    ? "Custom"
     : billingCycle === "yearly" && hasPrice
-    ? format(monthlyEquiv)
-    : format(plan.price_inr);
+    ? `₹${monthlyEquiv.toLocaleString("en-IN")}`
+    : plan.price_label;
 
   return (
     <div className="relative flex flex-col snap-start shrink-0 w-[80vw] sm:w-auto">
@@ -1596,13 +1569,19 @@ function PricingCard({
           {/* Price */}
           <div className="mt-5 mb-1 flex items-baseline gap-1">
             <span className="text-4xl font-extrabold tracking-tight">{displayPrice}</span>
-            {hasPrice && plan.interval && (
+            {!isEnterprise && hasPrice && plan.interval && (
               <span className="text-sm text-muted-foreground">/month</span>
             )}
           </div>
 
           {/* Price reference + savings */}
-          {hasPrice && (
+          {isEnterprise ? (
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <span className="text-xs text-muted-foreground">
+                Institutional seats &amp; custom deployment
+              </span>
+            </div>
+          ) : hasPrice ? (
             <div className="flex flex-wrap items-center gap-2 mt-1">
               {billingCycle === "yearly" ? (
                 <>
@@ -1626,10 +1605,10 @@ function PricingCard({
                 </span>
               )}
             </div>
-          )}
+          ) : null}
 
           {/* Outcome badges */}
-          {hasPrice && (
+          {!isEnterprise && hasPrice && (
             <div className="flex flex-wrap gap-1.5 mt-3">
               {[
                 { label: "Learn Faster", color: "#2563EB" },
@@ -1683,6 +1662,19 @@ function PricingCard({
                   Cancel
                 </Button>
               </div>
+            ) : isEnterprise ? (
+              <div className="transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
+                <Button
+                  asChild
+                  className="w-full h-11 text-sm font-semibold rounded-xl"
+                  variant="outline"
+                >
+                  <Link to={plan.cta_to || "/contact?inquiry=enterprise"}>
+                    {plan.cta_label || "Contact Sales"}
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Link>
+                </Button>
+              </div>
             ) : !hasPrice ? (
               <div className="transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
                 <Button
@@ -1696,7 +1688,7 @@ function PricingCard({
                   }
                 >
                   <Link to="/signup">
-                    {plan.cta_label || "Get started free"}
+                    {plan.cta_label || "Get Started Free"}
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Link>
                 </Button>
@@ -1726,13 +1718,11 @@ function PricingCard({
             )}
           </div>
 
-          {hasPrice && (
-            <div className="mt-3 text-center">
-              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider flex items-center justify-center gap-1.5">
-                <Check className="h-3 h-3 text-emerald-500" /> Securely processed by Razorpay & Cashfree
-              </span>
-            </div>
-          )}
+          <div className="mt-3 text-center">
+            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider flex items-center justify-center gap-1.5">
+              <Check className="h-3 h-3 text-emerald-500" /> Secure 256-bit Checkout &middot; Razorpay &amp; Cashfree
+            </span>
+          </div>
         </div>
       </div>
     </div>

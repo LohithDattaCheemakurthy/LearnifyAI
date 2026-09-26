@@ -1,29 +1,15 @@
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Trophy,
-  Flame,
-  Star,
-  Medal,
-  Crown,
-  TrendingUp,
-  Loader2,
-  Users,
-  Gift,
-  CheckCircle2,
-} from "lucide-react";
+import { Trophy, Flame, Star, Medal, Crown, TrendingUp, Loader2, Users } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { getLeaderboard, getUserRank, xpToLevel, levelToRank } from "@/lib/gamification.functions";
-import { myPendingPrizes, claimPrize } from "@/lib/leaderboard-prizes.functions";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 export default function LeaderboardPage() {
   const { user } = useAuth();
@@ -32,8 +18,6 @@ export default function LeaderboardPage() {
 
   const fetchLb = useServerFn(getLeaderboard);
   const fetchRank = useServerFn(getUserRank);
-  const fetchPrizes = useServerFn(myPendingPrizes);
-  const doClaim = useServerFn(claimPrize);
 
   const lb = useQuery({
     queryKey: ["leaderboard", period],
@@ -45,37 +29,6 @@ export default function LeaderboardPage() {
     queryKey: ["my-rank", user?.id],
     queryFn: () => fetchRank({ data: { userId: user!.id } }),
   });
-
-  const prizes = useQuery({
-    enabled: !!user,
-    queryKey: ["my-pending-prizes", user?.id],
-    queryFn: () => fetchPrizes().catch(() => []),
-  });
-
-  const [claiming, setClaiming] = useState<string | null>(null);
-
-  const handleClaim = async (claimId: string) => {
-    setClaiming(claimId);
-    try {
-      const r = await doClaim({ data: { claimId } });
-      toast.success(`Prize claimed! ${r.details ? `— ${r.details}` : ""}`);
-      prizes.refetch();
-      myRank.refetch();
-      lb.refetch();
-    } catch (e: any) {
-      toast.error(e?.message ?? "Claim failed");
-    } finally {
-      setClaiming(null);
-    }
-  };
-
-  useEffect(() => {
-    if (prizes.data && prizes.data.length > 0 && window.location.search.includes("claim=1")) {
-      setTimeout(() => {
-        document.querySelector('[data-prize-banner]')?.scrollIntoView({ behavior: "smooth" });
-      }, 200);
-    }
-  }, [prizes.data]);
 
   const topUsers = lb.data ?? [];
   const my = myRank.data;
@@ -188,60 +141,6 @@ export default function LeaderboardPage() {
         </div>
       )}
 
-      {/* Prize claims banner */}
-      {prizes.data && prizes.data.length > 0 && (
-        <div
-          data-prize-banner
-          className="rounded-2xl border-2 border-amber-300/60 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/20 dark:to-yellow-950/20 p-4 mb-6 shadow-sm"
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <Gift className="h-5 w-5 text-amber-500" />
-            <h3 className="font-display font-bold text-sm sm:text-base">
-              Your Leaderboard Prize{prizes.data.length > 1 ? "s" : ""}
-            </h3>
-            <Badge className="bg-amber-500 text-white text-[10px]">
-              {prizes.data.length} available
-            </Badge>
-          </div>
-          <div className="flex flex-col gap-2">
-            {prizes.data.map((p: any) => (
-              <div
-                key={p.id}
-                className="flex items-center justify-between gap-3 rounded-xl bg-white/70 dark:bg-card/70 border p-3 flex-wrap"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-2xl shrink-0">{p.prize_icon || "🎖️"}</span>
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold truncate">
-                      {p.prize_name}{" "}
-                      <span className="text-[10px] font-normal text-muted-foreground">
-                        · {p.period === "weekly" ? "Weekly" : "All-Time"} · #{p.rank}
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-muted-foreground line-clamp-1">
-                      {p.item_value || p.item_type}
-                    </div>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => handleClaim(p.id)}
-                  disabled={claiming === p.id}
-                  className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs gap-1 shrink-0"
-                >
-                  {claiming === p.id ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  )}
-                  Claim Prize
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Period tabs */}
       <div className="flex gap-1 mb-3 bg-muted/50 rounded-xl p-1 w-fit border">
         <Button
@@ -266,36 +165,25 @@ export default function LeaderboardPage() {
 
       {/* Podium */}
       {topUsers.length >= 3 && (
-        <div className="flex items-end justify-center gap-2 sm:gap-4 mb-8 pt-4">
-          {[1, 0, 2].map((i) => {
+        <div className="flex items-end justify-center gap-3 mb-8">
+          {[0, 1, 2].map((i) => {
             const u = topUsers[i];
             if (!u) return null;
             const level = xpToLevel(u.xp);
             const rankInfo = levelToRank(level);
-            const heights: Record<number, string> = {
-              0: "h-36 sm:h-44 bg-gradient-to-t from-yellow-500/20 via-yellow-400/10 to-card border-yellow-500/40",
-              1: "h-28 sm:h-34 bg-muted/40 border-slate-300/40",
-              2: "h-24 sm:h-28 bg-muted/30 border-amber-600/30",
-            };
-            const badgeBg: Record<number, string> = {
-              0: "bg-yellow-400 text-yellow-950 font-black ring-2 ring-yellow-300",
-              1: "bg-slate-300 text-slate-900 font-bold",
-              2: "bg-amber-600 text-white font-bold",
-            };
+            const heights = ["h-36", "h-28", "h-24"];
+            const badges = ["", "bg-yellow-400", "bg-slate-300", "bg-amber-600"];
             return (
-              <div key={u.id} className="flex flex-col items-center gap-2 w-24 sm:w-32">
+              <div key={u.id} className="flex flex-col items-center gap-2 w-20 sm:w-28">
                 <div className="relative">
-                  <Avatar className={cn(
-                    "border-2 border-background shadow-md",
-                    i === 0 ? "h-14 w-14 sm:h-16 sm:w-16 ring-4 ring-yellow-400/50" : "h-10 w-10 sm:h-12 sm:w-12 ring-2 ring-primary/20"
-                  )}>
+                  <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-background shadow-md ring-2 ring-primary/20">
                     {u.avatar_url && <AvatarImage src={u.avatar_url} />}
-                    <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
+                    <AvatarFallback className="text-xs bg-primary/10 text-primary">
                       {initials(u.full_name ?? null)}
                     </AvatarFallback>
                   </Avatar>
                   <div
-                    className={`absolute -bottom-1 -right-1 h-5 w-5 sm:h-6 sm:w-6 rounded-full grid place-items-center text-[10px] sm:text-xs shadow ${badgeBg[i]}`}
+                    className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full grid place-items-center text-[10px] font-bold text-white shadow ${badges[i + 1]}`}
                   >
                     {i + 1}
                   </div>
@@ -303,16 +191,20 @@ export default function LeaderboardPage() {
                 <Link
                   to="/u/$id"
                   params={{ id: u.id }}
-                  className="text-xs font-bold text-center leading-tight line-clamp-1 hover:underline"
+                  className="text-xs font-medium text-center leading-tight line-clamp-1 hover:underline"
                 >
                   {u.full_name}
                 </Link>
                 <RankBadgeSmall name={rankInfo.name} />
                 <div
-                  className={`w-full rounded-t-2xl border border-b-0 flex flex-col items-center justify-center p-2 text-center shadow-xs ${heights[i]}`}
+                  className={`w-full rounded-t-xl border border-b-0 bg-card flex items-center justify-center ${heights[i]}`}
                 >
-                  <div className="text-xs sm:text-sm font-black text-foreground">{u.xp.toLocaleString()} XP</div>
-                  <div className="text-[10px] text-muted-foreground font-semibold">Lv.{level}</div>
+                  <div className="text-center">
+                    <div className="font-bold text-xs">
+                      {(period === "weekly" ? (u.weekly_xp ?? 0) : u.xp).toLocaleString()}
+                    </div>
+                    <div className="text-[9px] text-muted-foreground">XP</div>
+                  </div>
                 </div>
               </div>
             );
@@ -372,24 +264,30 @@ export default function LeaderboardPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-                    <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground font-semibold bg-muted/30 px-2 py-0.5 rounded-md">
-                      <Flame className="h-3 w-3 text-orange-500 shrink-0" />
-                      <span>{u.current_streak ?? 0}d</span>
+                  <div className="flex items-center gap-3 sm:gap-5 shrink-0">
+                    <div className="hidden sm:flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <Flame className="h-3 w-3 text-orange-400" /> {u.current_streak ?? 0}d
                     </div>
-                    <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground font-semibold bg-muted/30 px-2 py-0.5 rounded-md">
-                      <span>Lv.{level}</span>
+                    <div className="hidden sm:flex items-center gap-1 text-[11px] text-muted-foreground">
+                      Lv.{level}
                     </div>
-                    <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-extrabold text-xs sm:text-sm min-w-[55px] justify-end">
-                      <Star className="h-3 w-3 sm:h-3.5 sm:w-3.5 fill-current shrink-0" />
-                      <span>
-                        {period === "weekly"
-                          ? (u.weekly_xp?.toLocaleString() ?? 0)
-                          : u.xp.toLocaleString()}
-                        <span className="text-[9px] font-bold text-muted-foreground ml-0.5">
-                          XP
+                    <div className="flex items-center gap-1 sm:gap-1.5 text-yellow-500 font-semibold text-xs sm:text-sm min-w-[60px] sm:min-w-[70px] justify-end">
+                      <Star className="h-3 w-3 sm:h-3.5 sm:w-3.5" fill="currentColor" />
+                      {period === "weekly" ? (
+                        <span>
+                          {u.weekly_xp?.toLocaleString() ?? 0}
+                          <span className="text-[9px] sm:text-[10px] font-normal text-muted-foreground ml-0.5">
+                            XP
+                          </span>
                         </span>
-                      </span>
+                      ) : (
+                        <span>
+                          {u.xp.toLocaleString()}
+                          <span className="text-[9px] sm:text-[10px] font-normal text-muted-foreground ml-0.5">
+                            XP
+                          </span>
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

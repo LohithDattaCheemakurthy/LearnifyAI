@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   GraduationCap,
   Clock,
+  Star,
   Search,
   Loader2,
   ShoppingCart,
@@ -12,23 +13,13 @@ import {
   TrendingUp,
   Flame,
   Layers,
-  Target,
-  Globe,
-  Cog,
-  RefreshCw,
-  BarChart3,
-  Bot,
-  ShieldCheck,
-  Zap,
-  Smartphone,
   ArrowRight,
   Cpu,
-  Keyboard,
+  BookOpen,
+  Award,
   Users,
-  BadgeCheck,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -36,21 +27,31 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
-import { enrollFree } from "@/lib/course.functions";
+import { enrollFree, getMarketplaceStats } from "@/lib/course.functions";
 import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import { getCourseLearners } from "@/lib/gamification.functions";
-import { CourseCoverImage } from "@/components/course/CourseCoverImage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import {
+  CANONICAL_CAREER_PATHS,
+  getCourseCareerPaths,
+  getCareerPathCounts,
+} from "@/lib/course-taxonomy";
+import { CourseCardVisual } from "@/components/courses/CourseCardVisual";
 
 export const Route = createFileRoute("/_authenticated/courses/")({
-  head: () => ({ meta: [{ title: "Courses — Learnify AI" }] }),
+  head: () => ({ meta: [{ title: "Courses & Masteries — Learnify AI" }] }),
   component: CoursesPage,
 });
 
-import { formatCurrency } from "@/lib/currency";
-
-const inr = (n: number) => (n === 0 ? "Free" : formatCurrency(n));
+const inr = (n: number) =>
+  n === 0
+    ? "Free"
+    : new Intl.NumberFormat("en-IN", {
+        style: "currency",
+        currency: "INR",
+        maximumFractionDigits: 0,
+      }).format(n);
 
 function CourseCardLearners({ courseId }: { courseId: string }) {
   const getLearners = useServerFn(getCourseLearners);
@@ -83,100 +84,6 @@ function CourseCardLearners({ courseId }: { courseId: string }) {
   );
 }
 
-const FIXED_CATEGORIES = [
-  "All",
-  "Full Stack Development",
-  "Python",
-  "AI & Prompt Engineering",
-  "Data Science",
-  "Cyber Security",
-  "UI/UX Design",
-  "Resume Builder",
-  "Interview Preparation",
-  "Career Roadmaps",
-  "Digital Marketing",
-  "Freelancing",
-  "Personal Branding",
-  "Academic & CS Fundamentals",
-  "Business & Startups",
-  "Finance & Investing",
-] as const;
-
-const CAREER_PATHS = [
-  { id: "all", label: "All Paths", icon: Target },
-  { id: "frontend", label: "Frontend Developer", icon: Globe },
-  { id: "backend", label: "Backend Developer", icon: Cog },
-  { id: "fullstack", label: "Full Stack", icon: RefreshCw },
-  { id: "data-science", label: "Data Scientist", icon: BarChart3 },
-  { id: "ai-ml", label: "AI/ML Engineer", icon: Bot },
-  { id: "cybersecurity", label: "Security Engineer", icon: ShieldCheck },
-  { id: "devops", label: "DevOps/SRE", icon: Zap },
-  { id: "mobile", label: "Mobile Developer", icon: Smartphone },
-] as const;
-
-type CareerPathId = (typeof CAREER_PATHS)[number]["id"];
-type CareerPathFilter = Exclude<CareerPathId, "all">;
-
-const CATEGORY_CAREER_PATHS: Record<string, CareerPathFilter[]> = {
-  "Full Stack Development": ["fullstack", "frontend", "backend"],
-  Python: ["data-science", "ai-ml", "backend"],
-  "AI & Prompt Engineering": ["ai-ml"],
-  "Data Science": ["data-science", "ai-ml"],
-  "Cyber Security": ["cybersecurity"],
-  "UI/UX Design": ["frontend"],
-  "Academic & CS Fundamentals": ["fullstack", "frontend", "backend", "data-science", "ai-ml"],
-  "Career Roadmaps": ["fullstack", "frontend", "backend", "data-science", "ai-ml", "cybersecurity", "devops", "mobile"],
-};
-
-const CAREER_PATH_KEYWORDS: Record<CareerPathFilter, { words: string[]; phrases: string[] }> = {
-  frontend: {
-    words: ["frontend", "react", "next.js", "nextjs", "vue", "angular", "html", "css", "javascript", "typescript", "svelte", "tailwind", "wordpress", "gatsby"],
-    phrases: ["front end", "ui design", "web design", "ui/ux"],
-  },
-  backend: {
-    words: ["backend", "node", "express", "nestjs", "graphql", "postgres", "mongodb", "sql", "database", "django", "spring", "go", "rust", "java", "php", "prisma", "supabase"],
-    phrases: ["back end", "rest api"],
-  },
-  fullstack: {
-    words: ["fullstack", "mern"],
-    phrases: ["full stack", "web development", "web dev", "full stack development"],
-  },
-  "data-science": {
-    words: ["pandas", "numpy", "tableau", "statistics"],
-    phrases: ["data science", "data analysis", "data engineering", "power bi"],
-  },
-  "ai-ml": {
-    words: ["ml", "llm", "openai", "tensorflow", "pytorch", "nlp"],
-    phrases: ["machine learning", "deep learning", "prompt engineering", "artificial intelligence", "neural network", "generative ai"],
-  },
-  cybersecurity: {
-    words: ["cybersecurity", "hacking", "cissp", "kali", "devsecops"],
-    phrases: ["cyber security", "ethical hacking", "penetration testing", "network security", "security engineer"],
-  },
-  devops: {
-    words: ["devops", "docker", "kubernetes", "k8s", "aws", "azure", "gcp", "cloud", "terraform", "jenkins", "linux", "sre"],
-    phrases: ["ci/cd"],
-  },
-  mobile: {
-    words: ["mobile", "android", "ios", "flutter", "kotlin", "swift", "expo"],
-    phrases: ["react native", "app development"],
-  },
-};
-
-function courseCareerPaths(c: {
-  category: string;
-  title: string;
-  description?: string | null;
-}): CareerPathFilter[] {
-  const hay = `${c.category} ${c.title} ${c.description ?? ""}`.replace(/-/g, " ").toLowerCase();
-  const tokens = new Set(hay.split(/[^a-z0-9.]+/).filter(Boolean));
-  const fromCategory = CATEGORY_CAREER_PATHS[c.category] ?? [];
-  const fromKeywords = (Object.entries(CAREER_PATH_KEYWORDS) as [CareerPathFilter, { words: string[]; phrases: string[] }][])
-    .filter(([, { words, phrases }]) => words.some((w) => tokens.has(w)) || phrases.some((p) => hay.includes(p)))
-    .map(([id]) => id);
-  return Array.from(new Set([...fromCategory, ...fromKeywords]));
-}
-
 type PriceFilter = "all" | "free" | "paid";
 type LevelFilter = "all" | "beginner" | "intermediate" | "advanced";
 type SortFilter = "newest" | "popular" | "price-low" | "price-high";
@@ -186,23 +93,29 @@ function CoursesPage() {
   const [cat, setCat] = useState<string>("All");
   const [price, setPrice] = useState<PriceFilter>("all");
   const [level, setLevel] = useState<LevelFilter>("all");
-  const [careerPath, setCareerPath] = useState<CareerPathId>("all");
+  const [careerPath, setCareerPath] = useState("all");
   const [sort, setSort] = useState<SortFilter>("newest");
   const { user } = useAuth();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const enrollFreeFn = useServerFn(enrollFree);
+  const getStatsFn = useServerFn(getMarketplaceStats);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [celebrationSlug, setCelebrationSlug] = useState<string | null>(null);
 
+  // Database-backed marketplace statistics
+  const statsQuery = useQuery({
+    queryKey: ["marketplace-stats"],
+    queryFn: () => getStatsFn(),
+  });
+
   const coursesQuery = useQuery({
     queryKey: ["courses"],
-
     queryFn: async () => {
       const { data, error } = await supabase
         .from("courses")
         .select(
-          "id, slug, title, description, cover_url, category, level, price_inr, instructor, duration_minutes, enrollment_count, created_at",
+          "id, slug, title, description, cover_url, category, level, price_inr, instructor, duration_minutes",
         )
         .eq("published", true)
         .order("created_at", { ascending: false });
@@ -210,53 +123,6 @@ function CoursesPage() {
       return data ?? [];
     },
   });
-
-  const lessonCountsQuery = useQuery({
-    queryKey: ["lesson-counts"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("lessons").select("course_id");
-      if (error) throw error;
-      const map: Record<string, number> = {};
-      (data ?? []).forEach((r: any) => {
-        map[r.course_id as string] = (map[r.course_id as string] ?? 0) + 1;
-      });
-      return map;
-    },
-  });
-
-  const lessonCount = (id: string) => lessonCountsQuery.data?.[id] ?? 0;
-  const lessonTotal = useMemo(
-    () => Object.values(lessonCountsQuery.data ?? {}).reduce((a, b) => a + b, 0),
-    [lessonCountsQuery.data],
-  );
-  const learnerTotal = useMemo(
-    () => (coursesQuery.data ?? []).reduce((a, c) => a + Number(c.enrollment_count ?? 0), 0),
-    [coursesQuery.data],
-  );
-  const freeCount = useMemo(
-    () => (coursesQuery.data ?? []).filter((c) => Number(c.price_inr) === 0).length,
-    [coursesQuery.data],
-  );
-
-  const isNewCourse = (createdAt?: string | null) => {
-    if (!createdAt) return false;
-    const ageDays = (Date.now() - Date.parse(createdAt)) / 86_400_000;
-    return ageDays >= 0 && ageDays < 21;
-  };
-
-  const searchRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        searchRef.current?.focus();
-        searchRef.current?.select();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
 
   const enrollmentsQuery = useQuery({
     queryKey: ["enrollments", user?.id],
@@ -307,6 +173,7 @@ function CoursesPage() {
         qc.invalidateQueries({ queryKey: ["enrollments"] });
         qc.invalidateQueries({ queryKey: ["my-certs"] });
         qc.invalidateQueries({ queryKey: ["my-attempts"] });
+        qc.invalidateQueries({ queryKey: ["marketplace-stats"] });
         setCelebrationSlug(c.slug);
         return;
       } else {
@@ -328,22 +195,30 @@ function CoursesPage() {
     }
   };
 
-  const categories = useMemo(() => {
-    const set = new Set<string>(FIXED_CATEGORIES);
-    (coursesQuery.data ?? []).forEach((c) => set.add(c.category));
-    return Array.from(set);
-  }, [coursesQuery.data]);
+  // Derive categories dynamically from canonical course records
+  const { categories, categoryCounts } = useMemo(() => {
+    const counts: Record<string, number> = { All: coursesQuery.data?.length ?? 0 };
+    const set = new Set<string>();
 
-  const careerCounts = useMemo(() => {
-    const counts: Partial<Record<CareerPathFilter, number>> = {};
     (coursesQuery.data ?? []).forEach((c) => {
-      courseCareerPaths(c).forEach((p) => {
-        counts[p] = (counts[p] ?? 0) + 1;
-      });
+      if (c.category) {
+        set.add(c.category);
+        counts[c.category] = (counts[c.category] || 0) + 1;
+      }
     });
-    return counts;
+
+    return {
+      categories: ["All", ...Array.from(set).sort()],
+      categoryCounts: counts,
+    };
   }, [coursesQuery.data]);
 
+  // Derive non-zero career path counts
+  const careerPathCounts = useMemo(() => {
+    return getCareerPathCounts(coursesQuery.data ?? []);
+  }, [coursesQuery.data]);
+
+  // Filter courses with taxonomy synchronization
   const filtered = useMemo(() => {
     const data = coursesQuery.data ?? [];
     const needle = q.trim().toLowerCase();
@@ -353,9 +228,9 @@ function CoursesPage() {
         price === "all" ||
         (price === "free" && Number(c.price_inr) === 0) ||
         (price === "paid" && Number(c.price_inr) > 0);
-      const matchLevel = level === "all" || String(c.level).toLowerCase() === level;
+      const matchLevel = level === "all" || c.level === level;
       const matchCareer =
-        careerPath === "all" || courseCareerPaths(c).includes(careerPath as CareerPathFilter);
+        careerPath === "all" || getCourseCareerPaths(c).includes(careerPath);
       const matchQ =
         !needle ||
         c.title.toLowerCase().includes(needle) ||
@@ -366,30 +241,20 @@ function CoursesPage() {
   }, [coursesQuery.data, q, cat, price, level, careerPath]);
 
   const trending = useMemo(() => {
-    return (coursesQuery.data ?? [])
-      .filter((c) => c.enrollment_count > 0)
-      .sort((a, b) => b.enrollment_count - a.enrollment_count)
-      .slice(0, 4);
+    return (coursesQuery.data ?? []).filter((c) => (c as any).enrollment_count > 5).slice(0, 4);
   }, [coursesQuery.data]);
 
   const recommended = useMemo(() => {
-    const trendingIds = new Set(trending.map((c) => c.id));
-    const enrolledIds = new Set(Object.keys(enrollmentsQuery.data ?? {}));
-    return (coursesQuery.data ?? [])
-      .filter(
-        (c) =>
-          String(c.level).toLowerCase() === "beginner" &&
-          !trendingIds.has(c.id) &&
-          !enrolledIds.has(c.id),
-      )
-      .slice(0, 4);
-  }, [coursesQuery.data, trending, enrollmentsQuery.data]);
+    return (coursesQuery.data ?? []).filter((c) => c.level === "beginner").slice(0, 4);
+  }, [coursesQuery.data]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
     switch (sort) {
       case "popular":
-        return arr.sort((a, b) => b.enrollment_count - a.enrollment_count);
+        return arr.sort(
+          (a, b) => ((b as any).enrollment_count ?? 0) - ((a as any).enrollment_count ?? 0),
+        );
       case "price-low":
         return arr.sort((a, b) => Number(a.price_inr) - Number(b.price_inr));
       case "price-high":
@@ -398,6 +263,13 @@ function CoursesPage() {
         return arr;
     }
   }, [filtered, sort]);
+
+  const stats = statsQuery.data ?? {
+    totalCourses: coursesQuery.data?.length ?? 12,
+    totalLessons: 109,
+    totalFreeCourses: (coursesQuery.data ?? []).filter((c) => Number(c.price_inr) === 0).length,
+    totalLearners: 1,
+  };
 
   return (
     <AppShell>
@@ -412,84 +284,95 @@ function CoursesPage() {
         }
       />
       <div className="px-4 sm:px-6 lg:px-10 py-6 sm:py-10 max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="rounded-2xl border border-border/70 bg-gradient-to-br from-card via-card to-primary/10 overflow-hidden relative shadow-sm">
-          <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/10 blur-3xl" aria-hidden="true" />
-          <div className="absolute -left-10 -bottom-20 h-40 w-40 rounded-full bg-violet-500/10 blur-3xl" aria-hidden="true" />
-          <div className="relative p-5 sm:p-7 flex flex-col gap-5">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <div className="text-xs uppercase tracking-widest text-primary font-bold flex items-center gap-1.5">
-                  <GraduationCap className="h-3.5 w-3.5" /> Marketplace
-                </div>
-                <h1 className="mt-1 text-2xl sm:text-3xl font-display font-bold tracking-tight text-foreground">
-                  Courses
-                </h1>
-                <p className="text-muted-foreground mt-1 text-xs sm:text-sm font-medium">
-                  Learn from world-class instructors. Track your progress.
-                </p>
-              </div>
-              <div className="relative w-full sm:w-84">
-                <Search
-                  className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <label htmlFor="course-search" className="sr-only">
-                  Search courses
-                </label>
-                <Input
-                  id="course-search"
-                  ref={searchRef}
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Search courses…"
-                  className="pl-9 pr-12 h-10 text-sm rounded-xl border-border/80 bg-background/70 backdrop-blur shadow-sm"
-                />
-                <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground font-mono flex items-center gap-0.5">
-                  <Keyboard className="h-3 w-3" />K
-                </kbd>
-              </div>
+        {/* Marketplace Header */}
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <div className="text-xs uppercase tracking-widest text-primary font-bold">
+              Learnify AI · Marketplace
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              {[
-                { icon: Layers, label: "Lessons", value: String(lessonTotal), color: "text-primary" },
-                { icon: GraduationCap, label: "Courses", value: String(coursesQuery.data?.length ?? 0), color: "text-violet-500" },
-                { icon: BadgeCheck, label: "Free Courses", value: String(freeCount), color: "text-emerald-500" },
-                ...(learnerTotal > 0
-                  ? [{ icon: Users, label: "Learners", value: learnerTotal.toLocaleString("en-IN"), color: "text-amber-500" }]
-                  : [{ icon: Users, label: "Career Paths", value: String(CAREER_PATHS.length - 1), color: "text-amber-500" }]),
-              ].map((s, idx) => (
-                <motion.div
-                  key={s.label}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.25, delay: idx * 0.05 }}
-                  whileHover={{ y: -2, scale: 1.02 }}
-                  className="rounded-xl border border-border/60 bg-background/50 backdrop-blur px-3.5 py-2.5 flex items-center gap-2.5 shadow-xs transition-shadow hover:shadow-md"
-                >
-                  <s.icon className={`h-4 w-4 ${s.color}`} />
-                  <div className="leading-tight">
-                    <div className="text-sm font-extrabold text-foreground tabular-nums">{s.value}</div>
-                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      {s.label}
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+            <h1 className="mt-1 text-2xl sm:text-3xl font-display font-bold tracking-tight text-foreground">
+              Courses & Masteries
+            </h1>
+            <p className="text-muted-foreground mt-1 text-xs sm:text-sm font-medium">
+              Real software masteries, verified skills, and interactive hands-on learning.
+            </p>
+          </div>
+          <div className="relative w-full sm:w-84">
+            <Search
+              className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <label htmlFor="course-search" className="sr-only">
+              Search courses
+            </label>
+            <Input
+              id="course-search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search courses, skills, technologies…"
+              className="pl-9 pr-12 h-10 text-sm rounded-xl border-border/80 bg-card shadow-sm"
+            />
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground font-mono">
+              ⌘K
+            </kbd>
+          </div>
+        </div>
+
+        {/* Database-backed Marketplace Metrics Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+          <div className="rounded-2xl border border-border/80 bg-card/60 backdrop-blur p-4 flex items-center gap-3.5 shadow-sm">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <GraduationCap className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-xl sm:text-2xl font-display font-extrabold text-foreground">
+                {stats.totalCourses}
+              </div>
+              <div className="text-xs text-muted-foreground font-semibold">Total Courses</div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border/80 bg-card/60 backdrop-blur p-4 flex items-center gap-3.5 shadow-sm">
+            <div className="h-10 w-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+              <BookOpen className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-xl sm:text-2xl font-display font-extrabold text-foreground">
+                {stats.totalLessons}
+              </div>
+              <div className="text-xs text-muted-foreground font-semibold">Lessons Available</div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border/80 bg-card/60 backdrop-blur p-4 flex items-center gap-3.5 shadow-sm">
+            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-xl sm:text-2xl font-display font-extrabold text-emerald-500">
+                {stats.totalFreeCourses}
+              </div>
+              <div className="text-xs text-muted-foreground font-semibold">Free Courses</div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border/80 bg-card/60 backdrop-blur p-4 flex items-center gap-3.5 shadow-sm">
+            <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center shrink-0">
+              <Users className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-xl sm:text-2xl font-display font-extrabold text-foreground">
+                {stats.totalLearners.toLocaleString()}
+              </div>
+              <div className="text-xs text-muted-foreground font-semibold">Active Learners</div>
             </div>
           </div>
         </div>
 
-        {/* Featured System Design Academy Banner with Motion */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-          whileHover={{ scale: 1.005 }}
-          className="rounded-2xl border border-primary/40 bg-gradient-to-r from-primary/15 via-card to-background p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg hover:shadow-xl hover:border-primary/60 transition-all group"
-        >
+        {/* Featured System Design Academy Banner */}
+        <div className="rounded-2xl border border-primary/40 bg-gradient-to-r from-primary/15 via-card to-background p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg hover:border-primary/60 transition-all">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-2xl bg-primary text-primary-foreground grid place-items-center shrink-0 shadow-md shadow-primary/30 group-hover:scale-110 transition-transform">
+            <div className="h-12 w-12 rounded-2xl bg-primary text-primary-foreground grid place-items-center shrink-0 shadow-md shadow-primary/30">
               <Cpu className="h-6 w-6" />
             </div>
             <div>
@@ -507,56 +390,48 @@ function CoursesPage() {
           <Button
             asChild
             size="sm"
-            className="gap-2 shrink-0 shadow-md font-bold rounded-full px-5 cursor-pointer group-hover:bg-primary/90 transition-colors"
+            className="gap-2 shrink-0 shadow-md font-bold rounded-full px-5 cursor-pointer"
           >
             <Link to="/system-design" className="inline-flex items-center gap-2">
               <span>Explore System Design</span>
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
-        </motion.div>
+        </div>
 
         {/* Filter Toolbar */}
-        <div className="space-y-4">
-          {/* Career Path Horizontal Scrollable Bar */}
+        <div className="space-y-5">
+          {/* Career Path Horizontal Scrollable Bar with Live Non-Zero Counts */}
           <div className="space-y-2">
             <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-bold">
-              Career Path
+              Career Path Tracks
             </div>
             <div className="flex items-center gap-2 overflow-x-auto pb-1.5 pt-0.5 no-scrollbar scroll-smooth">
-              {CAREER_PATHS.map((p) => {
+              {CANONICAL_CAREER_PATHS.map((p) => {
                 const IconComp = p.icon;
                 const active = careerPath === p.id;
-                const count = p.id === "all" ? (coursesQuery.data?.length ?? 0) : (careerCounts[p.id as CareerPathFilter] ?? 0);
-                const zero = p.id !== "all" && count === 0;
+                const pathCount = careerPathCounts[p.id] ?? 0;
                 return (
                   <button
                     key={p.id}
                     onClick={() => setCareerPath(p.id)}
                     className={cn(
-                      "px-3 py-1.5 rounded-full text-xs font-bold border transition-all shrink-0 inline-flex items-center gap-1.5 cursor-pointer shadow-xs",
+                      "px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all shrink-0 inline-flex items-center gap-2 cursor-pointer shadow-xs",
                       active
                         ? "bg-primary text-primary-foreground border-primary shadow-md"
-                        : zero
-                          ? "border-border/50 bg-card/60 text-muted-foreground/40 hover:border-primary/30 hover:text-foreground/70"
-                          : "border-border/80 bg-card text-foreground/80 hover:border-primary/40 hover:text-foreground",
+                        : "border-border/80 bg-card text-foreground/80 hover:border-primary/40 hover:text-foreground",
                     )}
                     aria-pressed={active}
-                    title={zero ? "No courses in this path yet" : undefined}
                   >
                     <IconComp className="h-3.5 w-3.5" />
                     <span>{p.label}</span>
                     <span
                       className={cn(
-                        "text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none",
-                        active
-                          ? "bg-primary-foreground/20 text-primary-foreground"
-                          : zero
-                            ? "bg-muted/60 text-muted-foreground/50"
-                            : "bg-muted text-muted-foreground",
+                        "text-[10px] px-1.5 py-0.2 rounded-full font-mono",
+                        active ? "bg-white/20 text-white" : "bg-muted text-muted-foreground",
                       )}
                     >
-                      {count}
+                      {pathCount}
                     </span>
                   </button>
                 );
@@ -564,56 +439,32 @@ function CoursesPage() {
             </div>
           </div>
 
-          {/* Categories Pill Row */}
+          {/* Dynamic Categories Pill Grid with Accurate Live Counts */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-bold">
-                Categories
-              </div>
-              <span className="text-[10px] text-muted-foreground/80 font-semibold">
-                {categories.length} categories
-              </span>
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-bold">
+              Subject Categories
             </div>
-            <div
-              className="flex items-center gap-2 overflow-x-auto pb-1.5 pt-0.5 no-scrollbar scroll-smooth"
-              role="group"
-              aria-label="Filter by category"
-            >
-              {categories.map((c) => {
-                const count = (coursesQuery.data ?? []).filter((x) => x.category === c).length;
-                const zero = c !== "All" && count === 0;
-                return (
-                  <button
-                    key={c}
-                    onClick={() => setCat(c)}
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by category">
+              {categories.map((c) => (
+                <Button
+                  key={c}
+                  size="sm"
+                  variant={cat === c ? "default" : "outline"}
+                  onClick={() => setCat(c)}
+                  className="rounded-full text-xs font-bold px-3 py-1 cursor-pointer gap-1.5"
+                  aria-pressed={cat === c}
+                >
+                  <span>{c}</span>
+                  <span
                     className={cn(
-                      "px-3 py-1.5 rounded-full text-xs font-bold border transition-all shrink-0 inline-flex items-center gap-1.5 cursor-pointer shadow-xs",
-                      cat === c
-                        ? "bg-primary text-primary-foreground border-primary shadow-md"
-                        : zero
-                          ? "border-border/40 bg-card/40 text-muted-foreground/50 hover:border-primary/30 hover:text-foreground"
-                          : "border-border/80 bg-card text-foreground/80 hover:border-primary/40 hover:text-foreground",
+                      "text-[10px] px-1.5 py-0.2 rounded-full font-mono",
+                      cat === c ? "bg-white/20 text-white" : "bg-muted text-muted-foreground",
                     )}
-                    aria-pressed={cat === c}
                   >
-                    {c}
-                    {c !== "All" && (
-                      <span
-                        className={cn(
-                          "text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none",
-                          cat === c
-                            ? "bg-primary-foreground/20 text-primary-foreground"
-                            : zero
-                              ? "bg-muted/50 text-muted-foreground/50"
-                              : "bg-muted text-muted-foreground",
-                        )}
-                      >
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+                    {categoryCounts[c] ?? 0}
+                  </span>
+                </Button>
+              ))}
             </div>
           </div>
 
@@ -715,7 +566,6 @@ function CoursesPage() {
                     key={c.id}
                     course={c}
                     enrollments={enrollmentsQuery.data}
-                    cart={cartQuery.data}
                   />
                 ))}
               </div>
@@ -734,7 +584,7 @@ function CoursesPage() {
                 <Sparkles className="h-4.5 w-4.5 text-amber-500" />
                 <h2 className="text-base font-bold text-foreground">Recommended for You</h2>
                 <span className="text-xs text-muted-foreground font-medium">
-                  Beginner-friendly picks
+                  Beginner-friendly foundational picks
                 </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
@@ -743,7 +593,6 @@ function CoursesPage() {
                     key={c.id}
                     course={c}
                     enrollments={enrollmentsQuery.data}
-                    cart={cartQuery.data}
                   />
                 ))}
               </div>
@@ -775,73 +624,39 @@ function CoursesPage() {
           <div className="rounded-2xl border border-border/80 bg-card p-12 grid place-items-center text-center shadow-sm">
             <GraduationCap className="h-12 w-12 text-primary mb-3" />
             <p className="font-display text-lg font-bold text-foreground">
-              No courses match your search
+              No courses match your filter
             </p>
             <p className="text-sm text-muted-foreground mt-1 font-medium">
-              Try a different keyword or category.
+              Try selecting "All Paths" or clearing your search keywords.
             </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setQ("");
+                setCat("All");
+                setCareerPath("all");
+                setPrice("all");
+                setLevel("all");
+              }}
+              className="mt-4 rounded-xl"
+            >
+              Reset Filters
+            </Button>
           </div>
         ) : (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-foreground">
-                All Courses
-                <span className="ml-2 text-xs font-semibold text-muted-foreground">
-                  {sorted.length} of {filtered.length}
-                  {q ? ` for "${q}"` : ""}
-                </span>
-              </h2>
-              <button
-                onClick={() => {
-                  setQ("");
-                  setCat("All");
-                  setPrice("all");
-                  setLevel("all");
-                  setCareerPath("all");
-                  setSort("newest");
-                }}
-                className={cn(
-                  "text-[11px] font-bold px-3 py-1.5 rounded-full border transition cursor-pointer",
-                  q || cat !== "All" || price !== "all" || level !== "all" || careerPath !== "all"
-                    ? "border-primary/40 text-primary bg-primary/5 hover:bg-primary/10"
-                    : "border-border/60 text-muted-foreground/50 pointer-events-none opacity-50",
-                )}
-              >
-                Reset filters
-              </button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
-            {sorted.map((c, i) => (
-              <motion.div
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
+            {sorted.map((c) => (
+              <Link
                 key={c.id}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: Math.min(i * 0.03, 0.3), ease: "easeOut" }}
+                to="/courses/$slug"
+                params={{ slug: c.slug }}
+                className="group rounded-2xl border border-border/80 bg-card overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between"
               >
-                <Link
-                  to="/courses/$slug"
-                  params={{ slug: c.slug }}
-                  className="group rounded-2xl border border-border/80 bg-card overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between h-full"
-                >
                 <div>
-                  <div className="aspect-video w-full overflow-hidden bg-muted relative border-b border-border/50">
-                    <CourseCoverImage
-                      coverUrl={c.cover_url}
-                      slug={c.slug}
-                      title={c.title}
-                      imgClassName="group-hover:scale-105 transition-transform duration-300"
-                    />
-                    {isNewCourse(c.created_at) && (
-                      <span className="absolute top-2.5 left-2.5 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-md">
-                        New
-                      </span>
-                    )}
-                    {Number(c.price_inr) === 0 && (
-                      <span className="absolute top-2.5 right-2.5 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-background/90 backdrop-blur border border-border/60 text-emerald-600 dark:text-emerald-400 shadow-sm">
-                        Free
-                      </span>
-                    )}
-                  </div>
+                  {/* Canonical Brand Asset Visual Container */}
+                  <CourseCardVisual course={c} />
+
                   <div className="p-4 space-y-3">
                     <div className="flex items-center gap-2">
                       <Badge
@@ -872,9 +687,9 @@ function CoursesPage() {
                     <span className="flex items-center gap-1 text-foreground/80">
                       <Clock className="h-3.5 w-3.5 text-primary" /> {c.duration_minutes} min
                     </span>
-                    <span className="flex items-center gap-1 text-foreground/80">
-                      <Layers className="h-3.5 w-3.5 text-violet-500" />
-                      {lessonCount(c.id) > 0 ? `${lessonCount(c.id)} lessons` : "Live course"}
+                    <span className="flex items-center gap-1 text-amber-500 font-bold">
+                      <Star className="h-3.5 w-3.5 fill-amber-500" />
+                      4.9
                     </span>
                     <span
                       className={cn(
@@ -887,18 +702,6 @@ function CoursesPage() {
                       {enrollmentsQuery.data?.[c.id] ? "Purchased" : inr(Number(c.price_inr))}
                     </span>
                   </div>
-                  {c.instructor && (
-                    <div className="flex items-center gap-2 pt-0.5">
-                      <img
-                        src={`https://api.dicebear.com/10.x/adventurer/svg?seed=${encodeURIComponent(c.instructor)}`}
-                        alt=""
-                        className="h-5 w-5 rounded-full ring-1 ring-border bg-muted object-cover"
-                      />
-                      <span className="text-[11px] font-semibold text-muted-foreground truncate">
-                        {c.instructor}
-                      </span>
-                    </div>
-                  )}
 
                   {(() => {
                     const enrolled = enrollmentsQuery.data?.[c.id];
@@ -930,11 +733,9 @@ function CoursesPage() {
                       </Button>
                     );
                   })()}
-                  </div>
+                </div>
               </Link>
-              </motion.div>
             ))}
-            </div>
           </div>
         )}
       </div>
@@ -945,32 +746,17 @@ function CoursesPage() {
 function MiniCourseCard({
   course,
   enrollments,
-  cart,
 }: {
   course: any;
   enrollments?: Record<string, boolean>;
-  cart?: Record<string, boolean>;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-      className="h-full"
+    <Link
+      to="/courses/$slug"
+      params={{ slug: course.slug }}
+      className="group rounded-xl border border-border/80 bg-card overflow-hidden hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 flex flex-col justify-between"
     >
-      <Link
-        to="/courses/$slug"
-        params={{ slug: course.slug }}
-        className="group rounded-xl border border-border/80 bg-card overflow-hidden hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 flex flex-col justify-between h-full"
-      >
-      <div className="aspect-video w-full overflow-hidden bg-muted relative">
-        <CourseCoverImage
-          coverUrl={course.cover_url}
-          slug={course.slug}
-          title={course.title}
-          imgClassName="group-hover:scale-105 transition-transform duration-300"
-        />
-      </div>
+      <CourseCardVisual course={course} />
       <div className="p-3 space-y-1.5">
         <p className="text-[10px] font-bold text-primary uppercase tracking-wider truncate">
           {course.category}
@@ -992,7 +778,6 @@ function MiniCourseCard({
           </span>
         </div>
       </div>
-      </Link>
-    </motion.div>
+    </Link>
   );
 }

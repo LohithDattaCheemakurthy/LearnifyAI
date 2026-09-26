@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Sparkles, DollarSign, Megaphone, Users, Check, Loader2, Send, Video } from "lucide-react";
@@ -7,41 +7,23 @@ import { MarketingPage } from "@/components/MarketingPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StaggerGroup, StaggerItem } from "@/components/Reveal";
-import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/creators")({
   head: () => ({
     meta: [
-      { title: "Course Creators & Educators Platform — Learnify AI" },
+      { title: "Creators — Learnify AI" },
       {
         name: "description",
         content:
-          "Build AI-enhanced courses, grow a global student audience, and earn automated revenue with instant wallet payouts on Learnify AI.",
+          "Build a course, grow an audience, and earn — with AI tooling that does the heavy lifting.",
       },
-      {
-        name: "keywords",
-        content:
-          "course creator platform, sell online courses, AI course builder, educator payouts India, Learnify creators",
-      },
-      { property: "og:type", content: "website" },
-      { property: "og:title", content: "Course Creators & Educators Platform — Learnify AI" },
+      { property: "og:title", content: "Creators — Learnify AI" },
       {
         property: "og:description",
         content:
-          "Launch courses in days, not months. Built-in audience, automated payouts, and AI co-pilot on Learnify AI.",
+          "Launch a course in days, not months. Built-in audience, payouts, and AI co-pilot.",
       },
-      { property: "og:url", content: "https://www.learnifyai.in/creators" },
-      { property: "og:image", content: "https://www.learnifyai.in/logo.png" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Course Creators & Educators Platform — Learnify AI" },
-      {
-        name: "twitter:description",
-        content:
-          "Launch courses in days, not months. Built-in audience, automated payouts, and AI co-pilot on Learnify AI.",
-      },
-      { name: "robots", content: "index, follow" },
     ],
-    links: [{ rel: "canonical", href: "https://www.learnifyai.in/creators" }],
   }),
   component: CreatorsPage,
 });
@@ -466,17 +448,15 @@ function CreatorsPage() {
     }
   };
 
-  const qc = useQueryClient();
-  const { data: approvedCreators = [] } = useQuery({
+  const { data: approvedCreators } = useQuery({
     queryKey: ["approved-creators-public"],
     queryFn: async () => {
       try {
+        const { supabase } = await import("@/integrations/supabase/client");
         const { data } = await (supabase as any)
-          .from("public_directory_entries")
+          .from("creator_applications")
           .select("*")
-          .eq("role", "creator")
-          .order("featured", { ascending: false })
-          .order("id", { ascending: true });
+          .eq("status", "approved");
         return data ?? [];
       } catch {
         return [];
@@ -484,52 +464,24 @@ function CreatorsPage() {
     },
   });
 
-  const { data: courseCounts = {} } = useQuery({
-    queryKey: ["public-creator-course-counts"],
-    queryFn: async () => {
-      try {
-        const { data } = await (supabase as any)
-          .from("courses")
-          .select("created_by");
-        const counts: Record<string, number> = {};
-        for (const row of data ?? []) {
-          if (!row.created_by) continue;
-          counts[row.created_by] = (counts[row.created_by] ?? 0) + 1;
-        }
-        return counts;
-      } catch {
-        return {};
-      }
-    },
-  });
+  const fallbackCreator = {
+    id: "creator-demo-1",
+    full_name: "Alex Rivera",
+    expertise: "Full-Stack & AI Systems",
+    bio: "Creator of Full-Stack AI Engineering & Autonomous Agents masterclasses on Learnify AI.",
+    coursesCount: 5,
+  };
 
-  useEffect(() => {
-    const ch = supabase
-      .channel("public-directory-creators")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "creator_applications" },
-        () => {
-          qc.invalidateQueries({ queryKey: ["approved-creators-public"] });
-          qc.invalidateQueries({ queryKey: ["public-creator-course-counts"] });
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
-  }, [qc]);
-
-  const creatorsList = approvedCreators.map((c: any) => ({
-    id: c.id,
-    user_id: c.user_id,
-    full_name: c.full_name || "Verified Creator",
-    avatar_url: c.avatar_url || c.profile_avatar_url || null,
-    expertise: c.expertise || "AI Educator",
-    bio: c.bio || "Building interactive courses and code playgrounds.",
-    coursesCount: courseCounts[c.user_id] ?? 0,
-    featured: !!c.featured,
-  }));
+  const creatorsList =
+    approvedCreators && approvedCreators.length > 0
+      ? approvedCreators.map((c: any) => ({
+          id: c.id,
+          full_name: c.full_name || c.applicant_name || "Verified Creator",
+          expertise: c.expertise || c.category || "AI Educator",
+          bio: c.motivation || c.bio || "Building interactive courses and code playgrounds.",
+          coursesCount: 3,
+        }))
+      : [fallbackCreator];
 
   return (
     <MarketingPage
@@ -616,8 +568,9 @@ function CreatorsPage() {
                   <div className="flex items-center gap-3">
                     <img
                       src={
-                        creator.avatar_url ||
-                        `https://api.dicebear.com/10.x/adventurer/svg?seed=${encodeURIComponent(creator.full_name)}`
+                        creator.full_name?.includes("Alex")
+                          ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80"
+                          : `https://api.dicebear.com/10.x/adventurer/svg?seed=${encodeURIComponent(creator.full_name)}`
                       }
                       alt={creator.full_name}
                       className="h-12 w-12 rounded-xl bg-primary/10 border border-primary/20 object-cover"
@@ -629,16 +582,9 @@ function CreatorsPage() {
                       <p className="text-xs text-primary font-medium mt-0.5">{creator.expertise}</p>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    {creator.featured && (
-                      <span className="text-[9px] font-semibold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full font-sans">
-                        ⭐ Featured
-                      </span>
-                    )}
-                    <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full shrink-0 font-sans">
-                      Verified
-                    </span>
-                  </div>
+                  <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full shrink-0 font-sans">
+                    Verified
+                  </span>
                 </div>
 
                 <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
@@ -646,7 +592,7 @@ function CreatorsPage() {
                 </p>
               </div>
 
-              <div className="pt-4 border-t border-border/60 flex items-center justify-between gap-3 font-sans animate-none">
+              <div className="pt-4 border-t border-border/60 flex items-center justify-between gap-3 font-sans animate-none animate-none">
                 <span className="text-xs font-semibold text-muted-foreground">
                   {creator.coursesCount} Courses Published
                 </span>

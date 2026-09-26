@@ -10,18 +10,11 @@ import {
   ImagePlus,
   X,
   Zap,
-  BrainCircuit,
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  Check,
-  Lightbulb,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github-dark.css";
-import { motion } from "framer-motion";
 
 import { AppShell } from "@/components/AppShell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -77,99 +70,20 @@ type Message = { id: string; role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; updated_at: string };
 
 const MODELS = [
-  { id: "gemini/gemini-2.0-flash", label: "Gemini API — Flash 2.0 (Fast & Multi-modal)", vision: true },
-  { id: "gemini/gemini-1.5-flash", label: "Gemini API — Flash 1.5 (High speed)", vision: true },
-  { id: "gemini/gemini-1.5-pro", label: "Gemini API — Pro 1.5 (Deep reasoning)", vision: true },
+  { id: "gemini/gemini-2.5-flash", label: "My Gemini API — Flash (fast)", vision: true },
+  { id: "gemini/gemini-2.5-pro", label: "My Gemini API — Pro (reasoning)", vision: true },
   {
     id: "groq/llama-3.3-70b-versatile",
-    label: "Groq API — Llama 3.3 70B (Ultra fast)",
+    label: "My Groq API — Llama 3.3 70B (ultra fast)",
     vision: false,
   },
   {
-    id: "openrouter/google/gemini-2.0-flash-001",
-    label: "OpenRouter — Gemini Flash 2.0",
+    id: "openrouter/google/gemini-2.5-flash",
+    label: "My OpenRouter API — Gemini Flash",
     vision: true,
   },
-  { id: "openrouter/deepseek/deepseek-chat", label: "OpenRouter — DeepSeek Chat", vision: false },
+  { id: "openrouter/deepseek/deepseek-chat", label: "My OpenRouter API — DeepSeek", vision: false },
 ];
-
-function parseThinkingAndAnswer(content: string): { thinking: string | null; answer: string } {
-  if (!content) return { thinking: null, answer: "" };
-  const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/i);
-  if (thinkMatch) {
-    const thinking = thinkMatch[1].trim();
-    const answer = content.replace(/<think>[\s\S]*?<\/think>/i, "").trim();
-    return { thinking, answer };
-  }
-  if (content.includes("Thinking Process:") || content.includes("Reasoning Step:")) {
-    const parts = content.split(/(?:Final Answer|Final Solution|Summary):/i);
-    if (parts.length >= 2) {
-      return { thinking: parts[0].trim(), answer: parts.slice(1).join("\n").trim() };
-    }
-  }
-  return { thinking: null, answer: content };
-}
-
-function ThinkingCard({ thinking }: { thinking: string }) {
-  const [open, setOpen] = useState(false);
-  const wordsCount = thinking.split(/\s+/).filter(Boolean).length;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -4 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mb-3.5 rounded-xl border border-indigo-500/20 bg-indigo-950/20 backdrop-blur-sm overflow-hidden text-xs transition-all shadow-sm"
-    >
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-3.5 py-2.5 text-indigo-300 hover:text-indigo-200 bg-indigo-500/10 hover:bg-indigo-500/15 transition-colors font-medium"
-      >
-        <div className="flex items-center gap-2">
-          <BrainCircuit className="h-4 w-4 text-indigo-400 animate-pulse shrink-0" />
-          <span className="font-semibold text-indigo-200">AI Reasoning & Thinking Process</span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/25 text-indigo-300 font-mono">
-            {wordsCount} words
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5 text-indigo-400">
-          <span className="text-[11px]">{open ? "Hide Details" : "Show Thinking"}</span>
-          {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-        </div>
-      </button>
-      {open && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          className="px-4 py-3 border-t border-indigo-500/20 bg-background/50 text-muted-foreground whitespace-pre-wrap font-mono text-[11px] leading-relaxed max-h-72 overflow-y-auto"
-        >
-          {thinking}
-        </motion.div>
-      )}
-    </motion.div>
-  );
-}
-
-function CopyMessageButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const onCopy = () => {
-    void navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast.success("Response copied to clipboard!");
-    setTimeout(() => setCopied(false), 2000);
-  };
-  return (
-    <button
-      type="button"
-      onClick={onCopy}
-      className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1 rounded-md bg-muted/40 hover:bg-muted/80 border border-border/50"
-    >
-      {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-      <span>{copied ? "Copied" : "Copy Response"}</span>
-    </button>
-  );
-}
 
 function AIPage() {
   const { user } = useAuth();
@@ -731,121 +645,77 @@ function AIPage() {
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : messages.length === 0 ? (
-                <div className="text-center py-16 sm:py-20">
-                  <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ duration: 0.3 }}
-                    className="mx-auto h-14 w-14 rounded-2xl bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 grid place-items-center mb-4 shadow-sm"
-                  >
-                    <Sparkles className="h-7 w-7 text-primary animate-pulse" />
-                  </motion.div>
-                  <h2 className="text-2xl font-display font-bold tracking-tight">Ask anything</h2>
-                  <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-                    Get personalized explanations, code reviews, study plans, and multi-modal answers.
+                <div className="text-center py-20">
+                  <div className="mx-auto h-12 w-12 rounded-2xl bg-primary/10 grid place-items-center mb-4">
+                    <Sparkles className="h-6 w-6 text-primary" />
+                  </div>
+                  <h2 className="text-xl font-display font-semibold">Ask anything</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Get explanations, code reviews, study plans, and more.
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-8 max-w-xl mx-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-8 max-w-xl mx-auto">
                     {[
-                      {
-                        prompt: "Explain quantum entanglement like I'm 12",
-                        tag: "Physics & Science",
-                      },
-                      {
-                        prompt: "Write a Python script to scrape a webpage",
-                        tag: "Coding & Automation",
-                      },
-                      {
-                        prompt: "Create a 4-week study plan for AWS Solutions Architect",
-                        tag: "Cloud & Certification",
-                      },
-                      {
-                        prompt: "What's the difference between SQL and NoSQL?",
-                        tag: "Databases & Architecture",
-                      },
-                    ].map((suggestion, idx) => (
-                      <motion.button
-                        key={suggestion.prompt}
-                        initial={{ y: 10, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{ delay: idx * 0.08, duration: 0.25 }}
-                        whileHover={{ y: -2, scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => {
-                          setInput(suggestion.prompt);
-                        }}
-                        className="text-left text-sm border border-border/80 bg-card/60 backdrop-blur-sm rounded-xl p-3.5 hover:border-primary/50 hover:bg-card/90 transition-all shadow-sm flex flex-col justify-between group"
+                      "Explain quantum entanglement like I'm 12",
+                      "Write a Python script to scrape a webpage",
+                      "Create a 4-week study plan for AWS Solutions Architect",
+                      "What's the difference between SQL and NoSQL?",
+                    ].map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        onClick={() => setInput(suggestion)}
+                        className="text-left text-sm border rounded-lg p-3 hover:bg-accent transition"
                       >
-                        <span className="font-medium text-foreground group-hover:text-primary transition-colors">
-                          {suggestion.prompt}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground font-mono mt-2 uppercase tracking-wider">
-                          {suggestion.tag} ↗
-                        </span>
-                      </motion.button>
+                        {suggestion}
+                      </button>
                     ))}
                   </div>
                 </div>
               ) : (
-                messages.map((m) => {
-                  const { thinking, answer } = m.role === "assistant" ? parseThinkingAndAnswer(m.content) : { thinking: null, answer: m.content };
-                  return (
-                    <motion.div
-                      key={m.id}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={cn("flex gap-3", m.role === "user" && "flex-row-reverse")}
-                    >
-                      {m.role === "user" ? (
-                        <Avatar className="h-8 w-8 shrink-0 ring-2 ring-primary/20">
-                          {userAvatar && <AvatarImage src={userAvatar} alt={userName} />}
-                          <AvatarFallback className="bg-foreground text-background text-xs font-semibold">
-                            {userInitial}
-                          </AvatarFallback>
-                        </Avatar>
-                      ) : (
-                        <div className="h-8 w-8 shrink-0 rounded-full grid place-items-center text-xs font-semibold bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-sm">
-                          AI
-                        </div>
+                messages.map((m) => (
+                  <div
+                    key={m.id}
+                    className={cn("flex gap-3", m.role === "user" && "flex-row-reverse")}
+                  >
+                    {m.role === "user" ? (
+                      <Avatar className="h-8 w-8 shrink-0 ring-2 ring-primary/20">
+                        {userAvatar && <AvatarImage src={userAvatar} alt={userName} />}
+                        <AvatarFallback className="bg-foreground text-background text-xs font-semibold">
+                          {userInitial}
+                        </AvatarFallback>
+                      </Avatar>
+                    ) : (
+                      <div className="h-8 w-8 shrink-0 rounded-full grid place-items-center text-xs font-semibold bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
+                        AI
+                      </div>
+                    )}
+                    <div
+                      className={cn(
+                        "rounded-2xl px-4 py-3 max-w-[85%]",
+                        m.role === "user" ? "bg-primary text-primary-foreground" : "bg-card border",
                       )}
+                    >
                       <div
                         className={cn(
-                          "rounded-2xl px-4 py-3 max-w-[92%] sm:max-w-[85%] shadow-sm transition-all",
-                          m.role === "user" ? "bg-primary text-primary-foreground" : "bg-card border border-border/80",
+                          "prose prose-sm max-w-none prose-pre:bg-muted prose-pre:text-foreground prose-code:before:hidden prose-code:after:hidden prose-img:rounded-lg prose-img:my-2",
+                          m.role === "user"
+                            ? "prose-invert prose-p:text-primary-foreground"
+                            : "dark:prose-invert",
                         )}
                       >
-                        {m.role === "assistant" && thinking && (
-                          <ThinkingCard thinking={thinking} />
+                        {m.content ? (
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            rehypePlugins={m.role === "assistant" ? [rehypeHighlight] : []}
+                          >
+                            {m.content}
+                          </ReactMarkdown>
+                        ) : (
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                         )}
-
-                        <div
-                          className={cn(
-                            "prose prose-sm max-w-none prose-pre:bg-muted/90 prose-pre:text-foreground prose-code:before:hidden prose-code:after:hidden prose-img:rounded-lg prose-img:my-2",
-                            m.role === "user"
-                              ? "prose-invert prose-p:text-primary-foreground"
-                              : "dark:prose-invert",
-                          )}
-                        >
-                          {answer ? (
-                            <>
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                rehypePlugins={m.role === "assistant" ? [rehypeHighlight] : []}
-                              >
-                                {answer}
-                              </ReactMarkdown>
-                              {m.role === "assistant" && <CopyMessageButton text={answer} />}
-                            </>
-                          ) : (
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
-                              <BrainCircuit className="h-4 w-4 animate-spin text-primary shrink-0" />
-                              <span>AI is analyzing & synthesizing answer...</span>
-                            </div>
-                          )}
-                        </div>
                       </div>
-                    </motion.div>
-                  );
-                })
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           </div>

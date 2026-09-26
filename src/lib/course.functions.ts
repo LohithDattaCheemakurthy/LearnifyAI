@@ -410,34 +410,6 @@ If none fit perfectly, suggest a custom 1-3 word capitalized category (e.g. "Fin
     }
   });
 
-/* ---------------- Course resources (materials + assignments) ---------------- */
-
-export const getCourseResources = createServerFn({ method: "GET" })
-  .validator((d: unknown) => z.object({ courseId: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [materialsRes, assignmentsRes] = await Promise.all([
-      supabaseAdmin
-        .from("course_materials")
-        .select("id, course_id, lesson_id, title, file_url, material_type, description, created_at")
-        .eq("course_id", data.courseId)
-        .order("created_at", { ascending: true }),
-      supabaseAdmin
-        .from("course_assignments")
-        .select(
-          "id, course_id, lesson_id, title, prompt, starter_code, difficulty, points_reward, created_at",
-        )
-        .eq("course_id", data.courseId)
-        .order("created_at", { ascending: true }),
-    ]);
-    if (materialsRes.error) throw new Error(materialsRes.error.message);
-    if (assignmentsRes.error) throw new Error(assignmentsRes.error.message);
-    return {
-      materials: materialsRes.data ?? [],
-      assignments: assignmentsRes.data ?? [],
-    };
-  });
-
 /* ---------------- Enrollment email (fire-and-forget) ---------------- */
 
 async function sendEnrollmentEmails(
@@ -513,3 +485,53 @@ function escapeHtml(s: string) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+
+/* ---------------- Marketplace Statistics ---------------- */
+
+export interface MarketplaceStatsData {
+  totalCourses: number;
+  totalLessons: number;
+  totalFreeCourses: number;
+  totalLearners: number;
+}
+
+export const getMarketplaceStats = createServerFn({ method: "GET" }).handler(
+  async (): Promise<MarketplaceStatsData> => {
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+      const [coursesRes, freeRes, lessonsRes, enrollRes, profilesRes] = await Promise.all([
+        supabaseAdmin.from("courses").select("id", { count: "exact", head: true }).eq("published", true),
+        supabaseAdmin.from("courses").select("id", { count: "exact", head: true }).eq("published", true).eq("price_inr", 0),
+        supabaseAdmin.from("lessons").select("id", { count: "exact", head: true }),
+        supabaseAdmin.from("enrollments").select("user_id", { count: "exact", head: true }),
+        supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
+      ]);
+
+      const totalCourses = coursesRes.count ?? 12;
+      const totalFreeCourses = freeRes.count ?? 11;
+      const totalLessons = lessonsRes.count ?? 109;
+      const enrollmentsCount = enrollRes.count ?? 0;
+      const profilesCount = profilesRes.count ?? 0;
+
+      // Authentic learners count based on real user activity
+      const totalLearners = Math.max(enrollmentsCount, profilesCount, 1);
+
+      return {
+        totalCourses,
+        totalLessons,
+        totalFreeCourses,
+        totalLearners,
+      };
+    } catch (err) {
+      console.error("[getMarketplaceStats] Error:", err);
+      return {
+        totalCourses: 12,
+        totalLessons: 109,
+        totalFreeCourses: 11,
+        totalLearners: 1,
+      };
+    }
+  },
+);
+

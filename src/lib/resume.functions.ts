@@ -109,7 +109,7 @@ STRICT FORMAT & CONTENT RULES:
   });
 
 const AtsInput = z.object({
-  resumeText: z.string().min(5).max(50000),
+  resumeText: z.string().min(10).max(50000),
   targetRole: z.string().min(1).max(200).optional().default("Software Engineer"),
   industry: z.string().max(200).optional().default(""),
 });
@@ -177,72 +177,20 @@ const CareerInput = z.object({
   learningStyle: z.enum(["self-paced", "structured", "mentor-led"]).optional().default("self-paced"),
 });
 
-const ROADMAP_SCHEMA = `{
-  "title": string,
-  "summary": string,
-  "timeline_months": number,
-  "current_skills": string[],
-  "target_skills": string[],
-  "skill_gap": [{ "skill": string, "priority": "high" | "medium" | "low", "why": string }],
-  "phases": [
-    {
-      "title": string,
-      "subtitle": string,
-      "color": string,
-      "description": string,
-      "skills": [{ "name": string, "topics": string[] }],
-      "courses": [{ "title": string, "provider": string, "url": string, "is_free": boolean, "duration": string }],
-      "projects": [{ "title": string, "description": string, "tech_stack": string[], "difficulty": "beginner" | "intermediate" | "advanced" }],
-      "milestones": string[]
-    }
-  ],
-  "monthly_milestones": [{ "month": number, "goal": string, "deliverable": string }],
-  "interview_prep": { "topics": string[], "platforms": string[], "questions": string[] }
-}`;
-
-function extractJsonObject(content: string): any {
-  const m = content.match(/\{[\s\S]*\}/);
-  if (!m) throw new Error("No JSON object found in response");
-  return JSON.parse(m[0]);
-}
-
 export const generateCareerRoadmap = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d: unknown) => CareerInput.parse(d || {}))
   .handler(async ({ data }) => {
-    const { findRoadmapId, buildGroundingPrompt } = await import("@/lib/roadmap-content");
-    const roadmapId = findRoadmapId(data.targetRole);
-    let grounding = "";
-    if (roadmapId) {
-      try {
-        const { ROADMAP_CONTENT } = await import("@/lib/roadmap-content.generated");
-        const rd = ROADMAP_CONTENT[roadmapId];
-        if (rd) grounding = buildGroundingPrompt(roadmapId, rd);
-      } catch (e) {
-        console.warn("Failed to load roadmap grounding:", e);
-      }
-    }
-
-    const userContent = `Create a ${data.timeline} career roadmap to become a ${data.targetRole}.
-
-CURRENT PROFILE:
-- Current role: ${data.currentRole || "Not provided"}
-- Current skills: ${data.skills || "Not provided"}
-- Experience: ${data.experience || "Not provided"}
-- Education: ${data.education || "Not provided"}
-- Preferred learning style: ${data.learningStyle}
-
-${grounding ? "REAL ROADMAP.SH TOPICS AND RESOURCES TO GROUND YOUR ANSWER:\n" + grounding + "\n\nUse these topics to structure phases, skills, courses and projects. Where provided, use the real resource URLs for course URLs and enrich course details (provider, free/paid, duration) from them.\n" : ""}
-Return ONLY a valid JSON object matching the schema. Every phase must include courses, projects, and milestones arrays.`;
-
     const body = {
       messages: [
         {
           role: "system",
-          content: `You are an expert career coach and learning path designer. Create detailed, actionable career roadmaps. Current year: 2025-2026. Return ONLY valid JSON matching this schema (no markdown fences, no prose):
-${ROADMAP_SCHEMA}`,
+          content: `You are an expert career coach and learning path designer. Create detailed, actionable career roadmaps. Current year: 2025-2026. Return ONLY valid JSON matching schema.`,
         },
-        { role: "user", content: userContent },
+        {
+          role: "user",
+          content: `Create a ${data.timeline} career roadmap to become a ${data.targetRole}.`,
+        },
       ],
       response_format: { type: "json_object" },
       temperature: 0.7,
@@ -253,48 +201,15 @@ ${ROADMAP_SCHEMA}`,
     const payload = await res.json();
     const content: string = payload.choices?.[0]?.message?.content ?? "{}";
     try {
-      return { roadmap: extractJsonObject(content), rawContent: null };
+      return { roadmap: JSON.parse(content) };
     } catch {
       return { roadmap: null, rawContent: content };
     }
   });
 
-export const getRoadmapGuide = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .validator((d: { roadmapId?: string; targetRole?: string }) =>
-    z.object({ roadmapId: z.string().optional(), targetRole: z.string().optional() }).parse(d),
-  )
-  .handler(async ({ data }) => {
-    const { findRoadmapId } = await import("@/lib/roadmap-content");
-    const { ROADMAP_CONTENT } = await import("@/lib/roadmap-content.generated");
-    const id = data.roadmapId || findRoadmapId(data.targetRole || "");
-    if (!id) return { roadmapId: null, roadmap: null };
-    const rd = ROADMAP_CONTENT[id];
-    if (!rd) return { roadmapId: id, roadmap: null };
-    return { roadmapId: id, roadmap: rd };
-  });
-
 const ExtractResumeInput = z.object({
   rawText: z.string().min(1).max(100000).optional().default(""),
 });
-
-function cleanAndParseJson(text: string): any {
-  if (!text) return {};
-  let cleaned = text.trim();
-  cleaned = cleaned.replace(/^```(?:json)?/gi, "").replace(/```$/gi, "").trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {}
-
-  const m = cleaned.match(/\{[\s\S]*\}/);
-  if (m) {
-    try {
-      const sanitized = m[0].replace(/,\s*([}\]])/g, "$1");
-      return JSON.parse(sanitized);
-    } catch {}
-  }
-  return {};
-}
 
 export const extractResumeFields = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -305,23 +220,27 @@ export const extractResumeFields = createServerFn({ method: "POST" })
       messages: [
         {
           role: "system",
-          content: `You are an expert resume parser. Extract structured information from the candidate's resume text. Return ONLY a valid JSON object with keys:
-"fullName", "email", "phone", "linkedin", "github", "summary", "experience", "education", "skills", "certifications", "projects", "targetRole".
-
-STRICT RULES:
-1. experience: Extract EVERY job entry as one line each: "Role @ Company (Start - End): Achievements". Preserve ALL companies, roles, dates and achievements.
-2. projects: Extract EVERY project: "- Name (URL): Description [tech1, tech2]".
-3. skills: List ALL skills separated by commas, e.g. "React, Node.js, Python, AWS, SQL, Git".
-4. education: "Degree — Institution (Year)" per line.
-5. summary: 2-3 sentence professional summary.
-6. targetRole: Target job title (e.g. "Full Stack Developer").
-7. Use "" for missing fields. Do not wrap in markdown fences.`,
+          content: `You are an expert resume parser. Extract structured information from the candidate's resume text. Return ONLY valid JSON matching this schema:
+{
+  "fullName": string,
+  "email": string,
+  "phone": string,
+  "linkedin": string,
+  "summary": string,
+  "experience": string,
+  "education": string,
+  "skills": string,
+  "certifications": string,
+  "projects": string,
+  "targetRole": string
+}`,
         },
         {
           role: "user",
           content: `Extract structured info from this resume text:\n"""${rawText}"""`,
         },
       ],
+      response_format: { type: "json_object" },
       temperature: 0.1,
     };
 
@@ -330,7 +249,6 @@ STRICT RULES:
       email: "",
       phone: "",
       linkedin: "",
-      github: "",
       summary: "",
       experience: "",
       education: "",
@@ -345,12 +263,14 @@ STRICT RULES:
       if (res.ok) {
         const payload = await res.json();
         const content: string = payload.choices?.[0]?.message?.content ?? "{}";
-        const parsed = cleanAndParseJson(content);
-        result = { ...result, ...parsed };
+        try {
+          result = { ...result, ...JSON.parse(content) };
+        } catch {
+          const m = content.match(/\{[\s\S]*\}/);
+          if (m) result = { ...result, ...JSON.parse(m[0]) };
+        }
       }
-    } catch (err) {
-      console.warn("AI extraction warning, applying fallback regex extraction:", err);
-    }
+    } catch {}
 
     const urlRegex = /(https?:\/\/[^\s,">]+)/gi;
     const urls = Array.from(new Set(rawText.match(urlRegex) || []));
@@ -359,10 +279,6 @@ STRICT RULES:
       if (!result.linkedin) {
         const linkedinUrl = urls.find((u) => u.includes("linkedin.com"));
         if (linkedinUrl) result.linkedin = linkedinUrl;
-      }
-      if (!result.github) {
-        const githubUrl = urls.find((u) => u.includes("github.com"));
-        if (githubUrl) result.github = githubUrl;
       }
 
       const projUrls = urls.filter(
@@ -386,22 +302,6 @@ STRICT RULES:
       }
     }
 
-    if (!result.fullName || result.fullName.length < 2) {
-      const lines = rawText.split("\n").map((l) => l.trim()).filter(Boolean);
-      for (const line of lines.slice(0, 5)) {
-        if (
-          line.length > 2 &&
-          line.length < 40 &&
-          !line.includes("@") &&
-          !line.includes("http") &&
-          !/resume|curriculum|cv|phone|email/i.test(line)
-        ) {
-          result.fullName = line;
-          break;
-        }
-      }
-    }
-
     if (!result.email) {
       const emailMatch = rawText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
       if (emailMatch) result.email = emailMatch[0];
@@ -419,42 +319,6 @@ STRICT RULES:
       if (expMatch) {
         result.experience = expMatch[0]
           .replace(/^(?:Experience|Work History|Employment|History)[\s:]*/i, "")
-          .trim();
-      }
-    }
-
-    if (!result.skills || result.skills.trim().length < 3) {
-      const skillsMatch = rawText.match(
-        /(?:Skills|Technical Skills|Core Competencies|Expertise|Proficiencies)[\s\S]*?(?=(?:Experience|Work History|Employment|Education|Projects|Certifications|$))/i,
-      );
-      if (skillsMatch) {
-        result.skills = skillsMatch[0]
-          .replace(/^(?:Skills|Technical Skills|Core Competencies|Expertise|Proficiencies)[\s:]*/i, "")
-          .replace(/\n{2,}/g, "\n")
-          .trim();
-      }
-    }
-
-    if (!result.education || result.education.trim().length < 3) {
-      const eduMatch = rawText.match(
-        /(?:Education|Academic Background|Qualifications)[\s\S]*?(?=(?:Experience|Skills|Projects|Certifications|$))/i,
-      );
-      if (eduMatch) {
-        result.education = eduMatch[0]
-          .replace(/^(?:Education|Academic Background|Qualifications)[\s:]*/i, "")
-          .replace(/\n{2,}/g, "\n")
-          .trim();
-      }
-    }
-
-    if (!result.projects || result.projects.trim().length < 3) {
-      const projMatch = rawText.match(
-        /(?:Projects|Key Projects|Portfolio|Project Experience)[\s\S]*?(?=(?:Experience|Skills|Education|Certifications|$))/i,
-      );
-      if (projMatch) {
-        result.projects = projMatch[0]
-          .replace(/^(?:Projects|Key Projects|Portfolio|Project Experience)[\s:]*/i, "")
-          .replace(/\n{2,}/g, "\n")
           .trim();
       }
     }

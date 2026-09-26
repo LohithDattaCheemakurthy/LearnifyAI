@@ -88,9 +88,9 @@ const DEFAULT_PREVIEW: PreviewData = {
   badgeIndustry: "Industry Relevant",
   badgeCareer: "Career Focused",
   badgeAccess: "Lifetime Access",
-  learnifyLogo: "/logo.png",
+  learnifyLogo: "/Logo Learnify AI.png",
   signatureImage: "",
-  centerLogo: "/logo.png",
+  centerLogo: "/Logo Learnify AI.png",
 };
 
 export function CertDesignerPreview({ template, onClose }: Props) {
@@ -100,7 +100,6 @@ export function CertDesignerPreview({ template, onClose }: Props) {
   const [activeFieldTab, setActiveFieldTab] = useState("all");
   const [showLinkedInModal, setShowLinkedInModal] = useState(false);
   const [showOpenBadgesModal, setShowOpenBadgesModal] = useState(false);
-  const [bgFailed, setBgFailed] = useState(false);
   const certRef = useRef<HTMLDivElement>(null);
 
   const fields = template.fields_json;
@@ -319,29 +318,9 @@ export function CertDesignerPreview({ template, onClose }: Props) {
                     width: "100%",
                     height: "100%",
                     objectFit: "cover",
-                    display: bgFailed ? "none" : "block",
                   }}
                   crossOrigin="anonymous"
-                  onError={() => setBgFailed(true)}
                 />
-                {bgFailed && (
-                  <>
-                    <div
-                      className="absolute pointer-events-none"
-                      style={{
-                        inset: 20,
-                        border: `3px double ${theme?.accent || "#c9a84c"}66`,
-                        borderRadius: 4,
-                      }}
-                    />
-                    <div
-                      className="absolute inset-0 pointer-events-none"
-                      style={{
-                        background: `radial-gradient(circle at 50% 0%, ${theme?.accent || "#c9a84c"}22 0%, transparent 60%)`,
-                      }}
-                    />
-                  </>
-                )}
                 {Object.keys(fields).map(renderField)}
               </div>
             </div>

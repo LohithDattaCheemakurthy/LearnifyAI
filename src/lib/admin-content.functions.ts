@@ -74,11 +74,7 @@ export const adminContentAction = createServerFn({ method: "POST" })
     }
 
     if (data.action === "insert") {
-      let insertData = data.data as any;
-      if (tableName === "cohorts" && !insertData?.creator_id) {
-        insertData = { ...insertData, creator_id: userId };
-      }
-      const { error } = await supabaseAdmin.from(tableName as never).insert(insertData);
+      const { error } = await supabaseAdmin.from(tableName as never).insert(data.data);
       if (error) throw error;
       logAdminAction({
         data: {
@@ -92,8 +88,14 @@ export const adminContentAction = createServerFn({ method: "POST" })
 
     if (data.action === "update") {
       if (!data.id) throw new Error("id required for update");
+      // Strip yearly_price for pricing_plans — column may not exist in schema yet
+      let updateData = data.data as any;
+      if (tableName === "pricing_plans" && updateData) {
+        const { yearly_price, ...rest } = updateData;
+        updateData = rest;
+      }
       const { error } = await (supabaseAdmin.from(tableName as any) as any)
-        .update(data.data)
+        .update(updateData)
         .eq(data.matchKey || "id", data.id);
       if (error) throw error;
       logAdminAction({

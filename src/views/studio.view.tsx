@@ -29,7 +29,6 @@ import {
   Video as VideoIcon,
   HelpCircle,
   GripVertical,
-  FileText,
 } from "lucide-react";
 import { cn, getCleanBannerUrl } from "@/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
@@ -56,7 +55,6 @@ import {
   type SizeKey,
 } from "@/lib/thumbnail.functions";
 import { EnrichmentProgressDialog } from "@/components/EnrichmentProgressDialog";
-import { CourseResourcesDialog } from "@/components/course/CourseResources";
 import { ThumbnailEditor } from "@/components/ThumbnailEditor";
 import { History, AlertTriangle, Scissors, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
@@ -159,7 +157,6 @@ export default function StudioPage() {
   const [manageMcqFor, setManageMcqFor] = useState<Course | null>(null);
   const [manageAssignFor, setManageAssignFor] = useState<Course | null>(null);
   const [manageProjectsFor, setManageProjectsFor] = useState<Course | null>(null);
-  const [manageResourcesFor, setManageResourcesFor] = useState<Course | null>(null);
   const [reviewSubFor, setReviewSubFor] = useState<Course | null>(null);
   const [aiBuilderOpen, setAiBuilderOpen] = useState(false);
   const [autoCompleting, setAutoCompleting] = useState<string | null>(null);
@@ -339,57 +336,52 @@ export default function StudioPage() {
                         {format(new Date(c.created_at), "dd-MM-yyyy")}
                       </td>
                       <td className="px-4 md:px-6 py-3 text-right">
-                        <div className="flex items-center gap-1.5 justify-end flex-wrap min-w-[320px]">
-                          <Button size="sm" variant="outline" onClick={() => setManageLessonsFor(c)} className="h-7 text-xs px-2.5 rounded-lg gap-1">
-                            <Video className="h-3.5 w-3.5 text-blue-500" /> Lessons
+                        <div className="flex items-center gap-1 justify-end flex-wrap">
+                          <Button size="sm" variant="ghost" onClick={() => setManageLessonsFor(c)}>
+                            <Video className="h-4 w-4" /> Lessons
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => setManageAssignFor(c)} className="h-7 text-xs px-2.5 rounded-lg gap-1">
-                            <ClipboardList className="h-3.5 w-3.5 text-emerald-500" /> Assign.
+                          <Button size="sm" variant="ghost" onClick={() => setManageAssignFor(c)}>
+                            <ClipboardList className="h-4 w-4" /> Assign.
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => setManageProjectsFor(c)} className="h-7 text-xs px-2.5 rounded-lg gap-1">
-                            <Code2 className="h-3.5 w-3.5 text-purple-500" /> Projects
+                          <Button size="sm" variant="ghost" onClick={() => setManageProjectsFor(c)}>
+                            <Code2 className="h-4 w-4" /> Projects
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => setManageResourcesFor(c)} className="h-7 text-xs px-2.5 rounded-lg gap-1">
-                            <FileText className="h-3.5 w-3.5 text-amber-500" /> Resources
+                          <Button size="sm" variant="ghost" onClick={() => setReviewSubFor(c)}>
+                            <FileCheck2 className="h-4 w-4" /> Subs
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => setReviewSubFor(c)} className="h-7 text-xs px-2.5 rounded-lg gap-1">
-                            <FileCheck2 className="h-3.5 w-3.5 text-teal-500" /> Subs
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => setManageMcqFor(c)} className="h-7 text-xs px-2.5 rounded-lg gap-1">
-                            <Brain className="h-3.5 w-3.5 text-pink-500" /> Test
+                          <Button size="sm" variant="ghost" onClick={() => setManageMcqFor(c)}>
+                            <Brain className="h-4 w-4" /> Test
                           </Button>
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="ghost"
                             disabled={autoCompleting === c.id}
                             onClick={() => handleAutoComplete(c.id)}
-                            className="h-7 text-xs px-2.5 rounded-lg gap-1 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border-indigo-500/30 text-indigo-600 dark:text-indigo-400 font-bold"
                           >
                             {autoCompleting === c.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                              <Sparkles className="h-3.5 w-3.5 text-indigo-500 fill-indigo-500" />
-                            )}
+                              <Sparkles className="h-4 w-4" />
+                            )}{" "}
                             AI
                           </Button>
                           <Button
-                            size="icon"
+                            size="sm"
                             variant="ghost"
-                            className="h-7 w-7 rounded-lg"
                             onClick={() => {
                               setCreating(false);
                               setEditing(c);
                             }}
                           >
-                            <Pencil className="h-3.5 w-3.5" />
+                            <Pencil className="h-4 w-4" />
                           </Button>
                           <Button
-                            size="icon"
+                            size="sm"
                             variant="ghost"
-                            className="h-7 w-7 rounded-lg text-destructive hover:text-destructive"
+                            className="text-destructive hover:text-destructive"
                             onClick={() => setDeletingCourse(c)}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </td>
@@ -425,14 +417,6 @@ export default function StudioPage() {
       />
 
       <SubmissionsReviewDialog course={reviewSubFor} onClose={() => setReviewSubFor(null)} />
-
-      {manageResourcesFor && (
-        <CourseResourcesDialog
-          courseId={manageResourcesFor.id}
-          courseTitle={manageResourcesFor.title}
-          onClose={() => setManageResourcesFor(null)}
-        />
-      )}
 
       <AiBuilderDialog
         open={aiBuilderOpen}
@@ -863,8 +847,8 @@ function CourseFormDialog({
             />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
-            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Cover Image / Thumbnail</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
+            <Label>Cover image / Thumbnail</Label>
+            <div className="flex gap-2 flex-wrap">
               <Input
                 value={coverUrl}
                 onChange={(e) => {
@@ -872,9 +856,9 @@ function CourseFormDialog({
                   setCoverFailed(false);
                 }}
                 placeholder="Paste image URL, upload, or generate with AI"
-                className="h-10 text-xs sm:col-span-2 md:col-span-4"
+                className="min-w-[180px] flex-1"
               />
-              <label className="inline-flex items-center justify-center gap-1.5 rounded-xl border bg-secondary px-3 py-2 text-xs font-bold hover:bg-secondary/80 cursor-pointer h-10 transition">
+              <label className="inline-flex items-center gap-1.5 rounded-md border bg-secondary px-3 text-sm font-medium hover:bg-secondary/80 cursor-pointer">
                 <Upload className="h-4 w-4" /> Upload
                 <input
                   type="file"
@@ -894,15 +878,14 @@ function CourseFormDialog({
                   }}
                 />
               </label>
-              <Button type="button" variant="secondary" onClick={() => setAiThumbOpen(true)} className="h-10 text-xs font-bold rounded-xl gap-1.5">
-                <Sparkles className="h-4 w-4 text-amber-500" /> AI Thumbnail
+              <Button type="button" variant="secondary" onClick={() => setAiThumbOpen(true)}>
+                <Sparkles className="h-4 w-4" /> AI Thumbnail
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setEditorOpen(true)}
                 disabled={!coverUrl}
-                className="h-10 text-xs font-bold rounded-xl gap-1.5"
               >
                 <Scissors className="h-4 w-4" /> Edit
               </Button>
@@ -913,11 +896,11 @@ function CourseFormDialog({
                   const seed = encodeURIComponent(
                     (title || category || "learning").trim().toLowerCase().replace(/\s+/g, "-"),
                   );
+                  // source.unsplash.com is deprecated. Use picsum.photos which supports CORS and seeded random images.
                   await applyCoverFromSource(`https://picsum.photos/seed/${seed}/1536/1024`, {
                     expected: "1536x1024",
                   });
                 }}
-                className="h-10 text-xs font-bold rounded-xl"
               >
                 Quick stock
               </Button>
@@ -1833,35 +1816,31 @@ function AiBuilderDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl font-bold font-display">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 grid place-items-center">
-              <Wand2 className="h-5 w-5 text-primary animate-pulse" />
-            </div>
-            My AI Course Builder
+          <DialogTitle className="flex items-center gap-2">
+            <Wand2 className="h-5 w-5 text-primary" /> My AI Course Builder
           </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground mt-1">
+          <DialogDescription>
             Generates modules → chapters → real-world examples → projects → assignments → MCQs.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 mt-2">
-          <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2">
+        <div className="space-y-3">
+          <div className="grid gap-2 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Topic *</Label>
+              <Label>Topic</Label>
               <Input
                 placeholder="e.g. Full-stack Next.js + tRPC + Prisma"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 maxLength={300}
-                className="h-11 rounded-xl"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Level</Label>
+              <Label>Level</Label>
               <select
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full h-9 rounded-md border bg-background px-2 text-sm"
                 value={level}
                 onChange={(e) => setLevel(e.target.value as any)}
               >
@@ -1871,56 +1850,49 @@ function AiBuilderDialog({
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Modules ({count})</Label>
+              <Label>Modules</Label>
               <Input
                 type="number"
                 min={2}
                 max={8}
                 value={count}
                 onChange={(e) => setCount(Number(e.target.value) || 4)}
-                className="h-11 rounded-xl"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Category</Label>
-              <Input value={category} onChange={(e) => setCategory(e.target.value)} className="h-11 rounded-xl" />
+              <Label>Category</Label>
+              <Input value={category} onChange={(e) => setCategory(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Price (INR ₹)</Label>
+              <Label>Price (INR)</Label>
               <Input
                 type="number"
                 min={0}
                 value={price}
                 onChange={(e) => setPrice(Number(e.target.value) || 0)}
-                className="h-11 rounded-xl"
               />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Target Audience (Optional)</Label>
+              <Label>Target audience (optional)</Label>
               <Input
                 value={audience}
                 onChange={(e) => setAudience(e.target.value)}
                 placeholder="e.g. junior frontend engineers learning the backend"
-                className="h-11 rounded-xl"
               />
             </div>
-            <div className="flex items-center gap-3 sm:col-span-2 pt-1">
+            <div className="flex items-center gap-2 sm:col-span-2">
               <Switch checked={published} onCheckedChange={setPublished} />
-              <Label className="!m-0 text-sm font-semibold cursor-pointer">Publish immediately to catalog</Label>
+              <Label className="!m-0">Publish immediately</Label>
             </div>
           </div>
 
-          <Button
-            onClick={generate}
-            disabled={busy !== ""}
-            className="w-full h-12 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-bold shadow-lg hover:opacity-95 transition-all text-sm gap-2"
-          >
+          <Button onClick={generate} disabled={busy !== ""} className="w-full">
             {busy === "gen" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Sparkles className="h-4 w-4" />
-            )}
-            Generate Blueprint
+            )}{" "}
+            Generate blueprint
           </Button>
 
           {blueprint && (

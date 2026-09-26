@@ -2,7 +2,7 @@
 
 <img src="src/assets/learnify-logo.png" alt="Learnify AI Logo" width="180" style="margin-bottom: 12px; filter: drop-shadow(0 4px 12px rgba(99, 102, 241, 0.25));" />
 
-# Learnify AI 4.0
+# Learnify AI 4.1
 
 **The AI-Native Learning & Career Operating System**
 
@@ -1410,6 +1410,28 @@ MIT License. See [LICENSE](LICENSE) for details.
 - 💳 **RAZORPAY INTEGRATION**: Added Razorpay as the primary payment gateway alongside Cashfree for broader UPI, card, and NetBanking support.
 
 - 🐛 **DATABASE FIX**: Resolved `duplicate key value violates unique constraint "billing_settings_key_key"` by adding explicit `onConflict: "key"` in Supabase upsert calls.
+
+### v4.1.0 (September 2026) — Master Production Architecture, Payments & Course Marketplace Sync
+
+- 💳 **UNIFIED PAYMENTS ARCHITECTURE & RAZORPAY PRIMARY**:
+  - Implemented provider-agnostic payment abstraction (`provider.interface.ts`, `razorpay.provider.ts`, `cashfree.provider.ts`, `payment-state-machine.ts`, `gateway-factory.ts`).
+  - Integrated Razorpay as primary payment gateway via REST API with HMAC-SHA256 verification and timingSafeEqual protection.
+  - Maintained Cashfree as secondary subscription gateway with resilient fallback.
+  - Hardened server-side webhooks (`/api/webhooks/razorpay`, `/api/webhooks/cashfree-subscription`) with idempotency keys and atomic activation.
+- 🪙 **CANONICAL DATA & AI QUOTAS**:
+  - Created `src/lib/canonical-config.ts` as single source of truth for branding, pricing, AI credits, and legal metadata.
+  - Enforced 100 credits/month for free tier; tiered credit allocations for paid plans.
+  - Standardized tax status (`tax_enabled: false`, `gstin: null`) with valid receipt generation.
+- ⚖️ **LEGAL & COMMERCIAL REFUND OS**:
+  - Created central `/legal` directory and `ContextualLegalNotice` component (shows once per session).
+  - Commercial exception refund request workflow in User Billing (`billing.tsx`) integrated with `billing_refunds` table and Admin review OS.
+- 🌐 **AUTOMATIC PRIVACY-PRESERVING LOCALE SYSTEM**:
+  - Replaced manual header selectors with privacy-first automated country/locale detection (`locale-detection.ts`).
+- 🎓 **COURSE MARKETPLACE & AUTHENTIC BRAND MARKS**:
+  - Reconciled database courses to 12 published courses, 109 lessons, and 11 free enrollments.
+  - Fixed category & career path filter count bugs via `course-taxonomy.ts`.
+  - Built authentic SVG vector brand logo system (`CourseBrandLogo.tsx`, `CourseCardVisual.tsx`) covering Excel, Word, Power BI, Python, Figma, ChatGPT, Claude, and more.
+  - Repositioned support agent widget to prevent bottom navigation collisions.
 
 ### v4.0.0 (July 2026) — Major Release
 

@@ -221,10 +221,57 @@ export const updateBillingSetting = createServerFn({ method: "POST" })
 
     const { error } = await supabaseAdmin
       .from("billing_settings")
-      .upsert(
-        { key: group, value: newValue, updated_at: new Date().toISOString() },
-        { onConflict: "key" },
-      );
+      .upsert({ key: group, value: newValue, updated_at: new Date().toISOString() })
+      .eq("key", group);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const getInvoiceTemplates = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("billing_templates")
+      .select("*")
+      .order("created_at", { ascending: false });
+    return data || [];
+  });
+
+export const saveInvoiceTemplate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { id?: string; name: string; content: any }) =>
+    z
+      .object({
+        id: z.string().optional(),
+        name: z.string(),
+        content: z.any(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    if (data.id) {
+      const { error } = await supabaseAdmin
+        .from("billing_templates")
+        .update({ name: data.name, content: data.content, updated_at: new Date().toISOString() })
+        .eq("id", data.id);
+      if (error) throw new Error(error.message);
+    } else {
+      const { error } = await supabaseAdmin
+        .from("billing_templates")
+        .insert({ name: data.name, content: data.content });
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true };
+  });
+
+export const deleteInvoiceTemplate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { id: string }) => z.object({ id: z.string() }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("billing_templates").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -238,7 +285,6 @@ export const createManualInvoice = createServerFn({ method: "POST" })
       description?: string;
       line_items?: any;
       due_date?: string;
-      send_email?: boolean;
     }) =>
       z
         .object({
@@ -247,7 +293,6 @@ export const createManualInvoice = createServerFn({ method: "POST" })
           description: z.string().optional(),
           line_items: z.any().optional(),
           due_date: z.string().optional(),
-          send_email: z.boolean().optional(),
         })
         .parse(d),
   )
@@ -259,7 +304,7 @@ export const createManualInvoice = createServerFn({ method: "POST" })
       invoice_number: invoiceNumber,
       amount_inr: data.total_inr,
       total_inr: data.total_inr,
-      notes: data.description || null,
+      description: data.description || null,
       line_items: data.line_items || null,
       due_date: data.due_date || null,
       status: "pending",
@@ -267,121 +312,19 @@ export const createManualInvoice = createServerFn({ method: "POST" })
     });
     if (error) throw new Error(error.message);
 
-    // Send invoice created email (non-blocking) — only when requested
-    if (data.send_email) {
-      import("@/lib/billing-email.functions").then((m) =>
-        m
-          .sendInvoiceCreatedEmail(
-            data.user_id,
-            invoiceNumber,
-            data.total_inr,
-            data.due_date || "Upon receipt",
-          )
-          .catch((e) => console.error("Failed to send invoice email:", e)),
-      );
-    }
+    // Send invoice created email (non-blocking)
+    import("@/lib/billing-email.functions").then((m) =>
+      m
+        .sendInvoiceCreatedEmail(
+          data.user_id,
+          invoiceNumber,
+          data.total_inr,
+          data.due_date || "Upon receipt",
+        )
+        .catch((e) => console.error("Failed to send invoice email:", e)),
+    );
 
     return { invoice_number: invoiceNumber, ok: true };
-  });
-
-const InvoiceStatus = z.enum(["pending", "paid", "failed", "refunded", "void"]);
-
-export const updateInvoice = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .validator(
-    (d: {
-      id: string;
-      status?: string;
-      total_inr?: number;
-      tax_inr?: number;
-      subtotal_inr?: number;
-      discount_inr?: number;
-      notes?: string | null;
-      terms?: string | null;
-      due_date?: string | null;
-      line_items?: any;
-      payment_method?: string | null;
-      cashfree_order_id?: string | null;
-      gstin?: string | null;
-    }) =>
-      z
-        .object({
-          id: z.string().uuid(),
-          status: InvoiceStatus.optional(),
-          total_inr: z.number().nonnegative().optional(),
-          tax_inr: z.number().nonnegative().optional(),
-          subtotal_inr: z.number().nonnegative().optional(),
-          discount_inr: z.number().nonnegative().optional(),
-          notes: z.string().nullable().optional(),
-          terms: z.string().nullable().optional(),
-          due_date: z.string().nullable().optional(),
-          line_items: z.any().optional(),
-          payment_method: z.string().nullable().optional(),
-          cashfree_order_id: z.string().nullable().optional(),
-          gstin: z.string().nullable().optional(),
-        })
-        .parse(d),
-  )
-  .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    // Ensure only admins/super_admins can edit invoices
-    const { data: roles } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", context!.userId);
-    const userRoles = (roles ?? []).map((r: any) => r.role);
-    if (!userRoles.includes("super_admin") && !userRoles.includes("admin")) {
-      throw new Error("Forbidden: Admin role required");
-    }
-
-    const update: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
-    if (data.status) update.status = data.status;
-    if (data.total_inr !== undefined) {
-      update.total_inr = data.total_inr;
-      update.amount_inr = data.total_inr;
-    }
-    if (data.tax_inr !== undefined) update.tax_inr = data.tax_inr;
-    if (data.subtotal_inr !== undefined) update.subtotal_inr = data.subtotal_inr;
-    if (data.discount_inr !== undefined) update.discount_inr = data.discount_inr;
-    if (data.notes !== undefined) update.notes = data.notes;
-    if (data.terms !== undefined) update.terms = data.terms;
-    if (data.due_date !== undefined) update.due_date = data.due_date;
-    if (data.line_items !== undefined) update.line_items = data.line_items;
-    if (data.payment_method !== undefined) update.payment_method = data.payment_method;
-    if (data.cashfree_order_id !== undefined) update.cashfree_order_id = data.cashfree_order_id;
-    if (data.gstin !== undefined) update.gstin = data.gstin;
-
-    const { data: existing } = await supabaseAdmin
-      .from("invoices")
-      .select("id")
-      .eq("id", data.id)
-      .single();
-    if (!existing) throw new Error("Invoice not found");
-
-    const { error } = await (supabaseAdmin as any)
-      .from("invoices")
-      .update(update)
-      .eq("id", data.id);
-    if (error) throw new Error(error.message);
-
-    // Audit log
-    try {
-      await (supabaseAdmin as any).from("billing_audit_logs").insert({
-        user_id: context!.userId,
-        action: "invoice_updated",
-        entity_type: "invoice",
-        entity_id: data.id,
-        metadata: { fields: Object.keys(update).filter((k) => k !== "updated_at") },
-        created_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.error("Failed to write billing audit log:", e);
-    }
-
-    return { ok: true };
   });
 
 export const getPaymentLogs = createServerFn({ method: "GET" })
@@ -539,7 +482,7 @@ export const processRefund = createServerFn({ method: "POST" })
 
     const { error: invErr } = await supabaseAdmin
       .from("invoices")
-      .update({ status: "refunded" })
+      .update({ status: "refunded", updated_at: new Date().toISOString() })
       .eq("id", data.invoice_id);
     if (invErr) throw new Error(invErr.message);
 
@@ -681,7 +624,7 @@ export const createBillingExport = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("billing_exports").insert({
       user_id: context!.userId,
-      export_type: data.type,
+      type: data.type,
       date_from: data.date_from || null,
       date_to: data.date_to || null,
       format: data.format,

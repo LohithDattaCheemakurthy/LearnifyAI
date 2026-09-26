@@ -545,12 +545,11 @@ export function AtsCheckerPage({ embedded = false }: { embedded?: boolean }) {
     `;
     const blob = new Blob(["\ufeff", htmlContent], { type: "application/msword" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Resume_Optimized_${(targetRole || "Career").replace(/\s+/g, "_")}.docx`;
-    document.body.appendChild(a);
+    const a = Object.assign(document.createElement("a"), {
+      href: url,
+      download: `Resume_Optimized_${(targetRole || "Career").replace(/\s+/g, "_")}.docx`,
+    });
     a.click();
-    document.body.removeChild(a);
     URL.revokeObjectURL(url);
     toast.success("Word Document (.docx) downloaded!");
   };
@@ -585,14 +584,11 @@ export function AtsCheckerPage({ embedded = false }: { embedded?: boolean }) {
 
   const downloadFixed = () => {
     const blob = new Blob([resumeText], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Resume_Optimized_${(targetRole || "Career").replace(/\s+/g, "_")}.txt`;
-    document.body.appendChild(a);
+    const a = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(blob),
+      download: `Resume_Optimized_${(targetRole || "Career").replace(/\s+/g, "_")}.txt`,
+    });
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
     toast.success("Text (.txt) downloaded!");
   };
 
