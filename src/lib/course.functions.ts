@@ -493,6 +493,7 @@ export interface MarketplaceStatsData {
   totalLessons: number;
   totalFreeCourses: number;
   totalLearners: number;
+  courseLessonCounts?: Record<string, number>;
 }
 
 export const getMarketplaceStats = createServerFn({ method: "GET" }).handler(
@@ -500,12 +501,13 @@ export const getMarketplaceStats = createServerFn({ method: "GET" }).handler(
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-      const [coursesRes, freeRes, lessonsRes, enrollRes, profilesRes] = await Promise.all([
+      const [coursesRes, freeRes, lessonsRes, enrollRes, profilesRes, lessonsRows] = await Promise.all([
         supabaseAdmin.from("courses").select("id", { count: "exact", head: true }).eq("published", true),
         supabaseAdmin.from("courses").select("id", { count: "exact", head: true }).eq("published", true).eq("price_inr", 0),
         supabaseAdmin.from("lessons").select("id", { count: "exact", head: true }),
         supabaseAdmin.from("enrollments").select("user_id", { count: "exact", head: true }),
         supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
+        supabaseAdmin.from("lessons").select("course_id"),
       ]);
 
       const totalCourses = coursesRes.count ?? 12;
@@ -517,11 +519,19 @@ export const getMarketplaceStats = createServerFn({ method: "GET" }).handler(
       // Authentic learners count based on real user activity
       const totalLearners = Math.max(enrollmentsCount, profilesCount, 1);
 
+      const courseLessonCounts: Record<string, number> = {};
+      for (const l of lessonsRows.data || []) {
+        if (l.course_id) {
+          courseLessonCounts[l.course_id] = (courseLessonCounts[l.course_id] || 0) + 1;
+        }
+      }
+
       return {
         totalCourses,
         totalLessons,
         totalFreeCourses,
         totalLearners,
+        courseLessonCounts,
       };
     } catch (err) {
       console.error("[getMarketplaceStats] Error:", err);
@@ -530,6 +540,7 @@ export const getMarketplaceStats = createServerFn({ method: "GET" }).handler(
         totalLessons: 109,
         totalFreeCourses: 11,
         totalLearners: 1,
+        courseLessonCounts: {},
       };
     }
   },

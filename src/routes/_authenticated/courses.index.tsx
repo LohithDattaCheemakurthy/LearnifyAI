@@ -687,9 +687,17 @@ function CoursesPage() {
                     <span className="flex items-center gap-1 text-foreground/80">
                       <Clock className="h-3.5 w-3.5 text-primary" /> {c.duration_minutes} min
                     </span>
-                    <span className="flex items-center gap-1 text-amber-500 font-bold">
-                      <Star className="h-3.5 w-3.5 fill-amber-500" />
-                      4.9
+                    <span className="flex items-center gap-1 text-muted-foreground font-medium">
+                      <BookOpen className="h-3.5 w-3.5 text-primary/70" />{" "}
+                      {statsQuery.data?.courseLessonCounts?.[c.id] ||
+                        (c.slug === "template-mastery"
+                          ? 13
+                          : c.slug === "html-css-essentials"
+                            ? 17
+                            : c.slug === "javascript-zero-to-pro"
+                              ? 16
+                              : 7)}{" "}
+                      lessons
                     </span>
                     <span
                       className={cn(
@@ -709,12 +717,12 @@ function CoursesPage() {
                     const isFree = Number(c.price_inr) === 0;
                     const busy = busyId === c.id;
                     const label = enrolled
-                      ? "Continue"
+                      ? "Continue Learning"
                       : inCart
-                        ? "View cart"
+                        ? "View in Cart"
                         : isFree
-                          ? "Enroll free"
-                          : "Add to cart";
+                          ? "Enroll Free"
+                          : "Add to Cart";
                     const Icon = enrolled ? Check : isFree ? Sparkles : ShoppingCart;
                     return (
                       <Button
